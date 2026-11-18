@@ -87,3 +87,18 @@ test('el modelo es persistente y las posiciones no alteran la simulación', asyn
   await runToEnd(page);
   expect(await page.getByTestId('event-list').innerText()).toBe(before);
 });
+
+test('estilo ilustrado: el mensaje en vuelo proviene del evento y cambiar de estilo no altera la simulación', async ({ page }) => {
+  await page.getByTestId('run-simulation').click();
+  const caption = page.getByTestId('packet-caption');
+  await expect(caption.first()).toBeVisible();
+  const text = (await caption.first().textContent()) ?? '';
+  expect(text.length).toBeGreaterThan(0);
+  await page.getByTestId('timeline').fill(await page.getByTestId('timeline').getAttribute('max') as string);
+  const before = await page.getByTestId('event-list').innerText();
+  await page.getByTestId('style-toggle').click();
+  await expect(page.getByTestId('style-toggle')).toContainText('Realista');
+  await page.getByTestId('run-simulation').click();
+  await page.getByTestId('timeline').fill(await page.getByTestId('timeline').getAttribute('max') as string);
+  expect(await page.getByTestId('event-list').innerText()).toBe(before);
+});

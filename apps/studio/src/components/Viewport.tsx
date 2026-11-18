@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { LessonHeader, ScenarioStepper } from './Lesson';
 import { compatibleProtocols, defaultPortFor, nextId } from '@asa/core-model';
 import type { LayerKey } from '@asa/visualization-3d';
 import { ArchitectureCanvas, deriveSceneState, STATUS_COLOR } from '@asa/visualization-3d';
@@ -53,6 +54,7 @@ export function Viewport() {
         camera={s.camera}
         theme={s.theme}
         quality={s.quality}
+        visualStyle={s.visualStyle}
         onSelect={(sel) => {
           if (s.tool === 'connect' && !sel) s.setTool('select');
           s.select(sel);
@@ -65,7 +67,9 @@ export function Viewport() {
         }}
       />
 
-      <div className="overlay overlay--tl" role="toolbar" aria-label="Herramientas">
+      <LessonHeader />
+
+      <div className="overlay overlay--tr" role="toolbar" aria-label="Cámara y capas">
         <div className="seg">
           <button className={s.tool === 'select' ? 'on' : ''} onClick={() => s.setTool('select')} title="Seleccionar / mover (V)">
             ⬚ Seleccionar
@@ -75,9 +79,6 @@ export function Viewport() {
           </button>
         </div>
         {s.tool === 'connect' && <div className="hint">{s.connectFrom ? 'Elija el componente destino' : 'Elija el componente origen'} · Esc para cancelar</div>}
-      </div>
-
-      <div className="overlay overlay--tr" role="toolbar" aria-label="Cámara y capas">
         <div className="seg">
           {(
             [
@@ -100,6 +101,16 @@ export function Viewport() {
           <button onClick={() => setLayersOpen(!layersOpen)} aria-expanded={layersOpen}>
             ☰ Capas
           </button>
+          <button
+            onClick={() => {
+              s.set({ visualStyle: s.visualStyle === 'illustrated' ? 'classic' : 'illustrated' });
+              s.setCamera('perspective');
+            }}
+            title="Estilo visual (no altera la simulación)"
+            data-testid="style-toggle"
+          >
+            {s.visualStyle === 'illustrated' ? '✎ Ilustrado' : '◼ Realista'}
+          </button>
           <button onClick={() => s.set({ quality: s.quality === 'high' ? 'low' : 'high' })} title="Calidad gráfica (no altera la simulación)">
             {s.quality === 'high' ? 'Alta' : 'Baja'}
           </button>
@@ -115,6 +126,8 @@ export function Viewport() {
           </div>
         )}
       </div>
+
+      <ScenarioStepper />
 
       <div className="overlay overlay--bl legend" aria-label="Leyenda">
         {(
@@ -137,10 +150,7 @@ export function Viewport() {
         </span>
       </div>
 
-      <div className="overlay overlay--br provenance" title="Principio P6: transparencia">
-        <strong>Simulación basada en reglas</strong> · latencias estimadas · no es medición real
-        {s.runtime && <span className="muted"> · motor en {s.runtime}</span>}
-      </div>
+      
 
       {stale && (
         <div className="overlay overlay--tc stale" role="status">

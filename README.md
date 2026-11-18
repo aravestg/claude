@@ -32,6 +32,7 @@ pnpm typecheck && pnpm test:coverage && pnpm build && pnpm test:e2e
 
 ## Qué incluye
 
+- **Dos estilos visuales** (no alteran la simulación): **Ilustrado** (predeterminado: cámara isométrica ortográfica, fichas pastel con contorno de tinta, flechas planas, zonas punteadas, mensajes en píldora que viajan con el texto real del evento, encabezado de escenario con KPIs simulados y barra de escenarios) y **Realista** (perspectiva, sombras).
 - **Editor 3D real** (Three.js / React Three Fiber): formas por tipo, VPC/subredes translúcidas, arcos de conexión con protocolo:puerto (discontinuas = sin cifrado), arrastre, conexión entre componentes validada, cámara orbital y vistas perspectiva/superior/lateral/isométrica, enfoque, seguimiento de la solicitud, capas y calidad gráfica.
 - **Motor de simulación determinista** (Web Worker): DNS, TCP/TLS, firewall stateful (reject/drop), balanceador con health checks, API Gateway (401/429), servicios con pool, timeouts, reintentos con backoff y circuit breaker, bases de datos con Multi-AZ/failover, Security Groups (descarte silencioso) e IAM (403). Fallas de red, autorización, autenticación, disponibilidad, aplicación, capacidad y DNS se modelan de forma diferenciada.
 - **Consola de simulación**: play/pause/stop/restart, paso adelante/atrás, velocidad, línea de tiempo, lista de eventos e inspector con payload sintético, encabezados, protocolo, puerto, causa y explicación básica/avanzada.

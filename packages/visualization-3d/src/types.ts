@@ -9,3 +9,4 @@ export interface CameraRequest {
 }
 export type Tool = 'select' | 'connect';
 export type { Vec3 };
+export type VisualStyle = 'illustrated' | 'classic';

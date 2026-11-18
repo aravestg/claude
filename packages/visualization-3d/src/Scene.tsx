@@ -13,7 +13,8 @@ import type { SceneState, VisualStatus } from './derive';
 import { bounds, connectionCurve } from './geometry';
 import { CATEGORY_COLOR, PACKET_COLOR, STATUS_COLOR, STATUS_LABEL } from './palette';
 import { Shape } from './shapes';
-import type { CameraRequest, LayerKey, Selection, Tool } from './types';
+import { IllustratedBody, IllustratedConnection, IllustratedPacket, IllustratedZone, NamePill, pastelFor, TopFace } from './illustrated';
+import type { CameraRequest, LayerKey, Selection, Tool, VisualStyle } from './types';
 
 export interface ArchitectureCanvasProps {
   model: ArchitectureModel;
@@ -26,6 +27,7 @@ export interface ArchitectureCanvasProps {
   camera: CameraRequest;
   theme: 'dark' | 'light';
   quality: 'high' | 'low';
+  visualStyle: VisualStyle;
   onSelect: (sel: Selection) => void;
   onMove: (id: string, pos: Vec3) => void;
   onConnectPick: (id: string) => void;
@@ -35,24 +37,28 @@ export interface ArchitectureCanvasProps {
 const ORIGIN: Vec3 = { x: 0, y: 0, z: 0 };
 
 export function ArchitectureCanvas(props: ArchitectureCanvasProps) {
-  const bg = props.theme === 'dark' ? '#0b1120' : '#eef2f7';
+  const ill = props.visualStyle === 'illustrated';
+  const bg = props.theme === 'dark' ? (ill ? '#101722' : '#0b1120') : ill ? '#f3ecdd' : '#eef2f7';
   return (
     <Canvas
-      shadows={props.quality === 'high'}
+      key={props.visualStyle}
+      orthographic={ill}
+      flat={ill}
+      shadows={!ill && props.quality === 'high'}
       dpr={props.quality === 'high' ? [1, 2] : 1}
-      camera={{ position: [-6, 16, 24], fov: 45, near: 0.1, far: 500 }}
+      camera={ill ? { position: [30, 30, 30], zoom: 34, near: -500, far: 1000 } : { position: [-6, 16, 24], fov: 45, near: 0.1, far: 500 }}
       gl={{ preserveDrawingBuffer: true, antialias: props.quality === 'high' }}
       onPointerMissed={() => props.onSelect(null)}
       data-testid="scene-canvas"
     >
       <color attach="background" args={[bg]} />
-      <fog attach="fog" args={[bg, 45, 110]} />
-      <hemisphereLight args={['#dbeafe', '#1e293b', 0.6]} />
-      <ambientLight intensity={0.35} />
+      {!ill && <fog attach="fog" args={[bg, 45, 110]} />}
+      <hemisphereLight args={['#dbeafe', ill ? '#b8a98c' : '#1e293b', ill ? 1.1 : 0.6]} />
+      <ambientLight intensity={ill ? 0.9 : 0.35} />
       <directionalLight
         position={[12, 22, 10]}
-        intensity={1.25}
-        castShadow={props.quality === 'high'}
+        intensity={ill ? 0.9 : 1.25}
+        castShadow={!ill && props.quality === 'high'}
         shadow-mapSize={[2048, 2048]}
         shadow-camera-left={-30}
         shadow-camera-right={30}
@@ -66,6 +72,7 @@ export function ArchitectureCanvas(props: ArchitectureCanvasProps) {
 
 function SceneContent(props: ArchitectureCanvasProps) {
   const { model, sceneState, hiddenLayers, theme } = props;
+  const ill = props.visualStyle === 'illustrated';
   const [dragPreview, setDragPreview] = useState<{ id: string; pos: Vec3 } | null>(null);
   const pos = (id: string): Vec3 => (dragPreview?.id === id ? dragPreview.pos : (model.layout.positions[id] ?? ORIGIN));
 
@@ -93,15 +100,15 @@ function SceneContent(props: ArchitectureCanvasProps) {
 
   return (
     <>
-      <OrbitControls makeDefault enableDamping dampingFactor={0.12} maxPolarAngle={Math.PI / 2.05} minDistance={4} maxDistance={120} />
+      <OrbitControls makeDefault enableDamping dampingFactor={0.12} maxPolarAngle={Math.PI / 2.05} minDistance={4} maxDistance={120} minZoom={6} maxZoom={220} />
       <CameraRig {...props} pos={pos} />
       <Grid
         position={[0, -0.01, 0]}
         args={[200, 200]}
         cellSize={1}
         sectionSize={5}
-        cellColor={theme === 'dark' ? '#1e293b' : '#cbd5e1'}
-        sectionColor={theme === 'dark' ? '#334155' : '#94a3b8'}
+        cellColor={theme === 'dark' ? '#1e293b' : ill ? '#e4d9c2' : '#cbd5e1'}
+        sectionColor={theme === 'dark' ? '#334155' : ill ? '#d3c4a3' : '#94a3b8'}
         fadeDistance={90}
         infiniteGrid
       />
@@ -112,12 +119,25 @@ function SceneContent(props: ArchitectureCanvasProps) {
 
       {!hiddenLayers.has('groups') &&
         !hiddenLayers.has('infrastructure') &&
-        model.groups.map((g) => <GroupBox key={g.id} group={g} model={model} pos={pos} visible={visible} theme={theme} />)}
+        model.groups.map((g) => <GroupBox key={g.id} group={g} model={model} pos={pos} visible={visible} theme={theme} illustrated={ill} />)}
 
       {!hiddenLayers.has('communications') &&
         model.connections
           .filter((k) => visible.has(k.sourceId) && visible.has(k.targetId))
-          .map((k) => (
+          .map((k) =>
+            ill ? (
+              <IllustratedConnection
+                key={k.id}
+                conn={k}
+                from={pos(k.sourceId)}
+                to={pos(k.targetId)}
+                lane={lanes.get(k.id) ?? 0}
+                status={sceneState.connections[k.id]?.status}
+                selected={props.selection?.kind === 'connection' && props.selection.id === k.id}
+                theme={theme}
+                onSelect={() => props.onSelect({ kind: 'connection', id: k.id })}
+              />
+            ) : (
             <ConnectionView
               key={k.id}
               conn={k}
@@ -129,7 +149,8 @@ function SceneContent(props: ArchitectureCanvasProps) {
               theme={theme}
               onSelect={() => props.onSelect({ kind: 'connection', id: k.id })}
             />
-          ))}
+            )
+          )}
 
       {model.components
         .filter((c) => visible.has(c.id))
@@ -147,6 +168,7 @@ function SceneContent(props: ArchitectureCanvasProps) {
             connectSource={props.connectFrom === c.id}
             tool={props.tool}
             theme={theme}
+            illustrated={ill}
             onSelect={() => (props.tool === 'connect' ? props.onConnectPick(c.id) : props.onSelect({ kind: 'component', id: c.id }))}
             onDoubleClick={() => props.onFocus(c.id)}
             onDrag={(p) => setDragPreview(p ? { id: c.id, pos: p } : null)}
@@ -160,6 +182,7 @@ function SceneContent(props: ArchitectureCanvasProps) {
       {!hiddenLayers.has('communications') && sceneState.packet && (() => {
         const k = model.connections.find((x) => x.id === sceneState.packet!.connectionId);
         if (!k || !visible.has(k.sourceId) || !visible.has(k.targetId)) return null;
+        if (ill) return <IllustratedPacket conn={k} from={pos(k.sourceId)} to={pos(k.targetId)} lane={lanes.get(k.id) ?? 0} packet={sceneState.packet!} />;
         return <PacketView conn={k} from={pos(k.sourceId)} to={pos(k.targetId)} lane={lanes.get(k.id) ?? 0} packet={sceneState.packet!} />;
       })()}
     </>
@@ -180,6 +203,7 @@ function ComponentNode(p: {
   connectSource: boolean;
   tool: Tool;
   theme: 'dark' | 'light';
+  illustrated: boolean;
   onSelect: () => void;
   onDoubleClick: () => void;
   onDrag: (p: Vec3 | null) => void;
@@ -258,12 +282,24 @@ function ComponentNode(p: {
         }}
         userData={{ componentId: p.id }}
       >
-        <Shape shape={def?.shape ?? 'server'} color={color} emissive={emissive} emissiveIntensity={lit ? 0.55 : 0} opacity={p.status === 'down' ? 0.55 : 1} />
+        {p.illustrated ? (
+          <IllustratedBody shape={def?.shape ?? 'server'} base={pastelFor(def?.category ?? 'compute', def?.shape ?? 'server')} status={p.status} selected={p.selected || p.connectSource || hover} theme={p.theme} />
+        ) : (
+          <Shape shape={def?.shape ?? 'server'} color={color} emissive={emissive} emissiveIntensity={lit ? 0.55 : 0} opacity={p.status === 'down' ? 0.55 : 1} />
+        )}
         {/* volumen de selección */}
         <mesh position={[0, 0.9, 0]} visible={false}>
           <boxGeometry args={[1.8, 1.9, 1.8]} />
         </mesh>
       </group>
+      {p.illustrated && (
+        <>
+          <TopFace shape={def?.shape ?? 'server'} name={p.name} theme={p.theme} />
+          <NamePill shape={def?.shape ?? 'server'} name={p.name} type={def?.label ?? p.type} status={p.status} badge={p.badge} selected={p.selected} connectSource={p.connectSource} theme={p.theme} id={p.id} />
+        </>
+      )}
+      {!p.illustrated && (
+      <>
       <mesh ref={ring} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
         <ringGeometry args={[1.05, p.selected || p.connectSource ? 1.3 : 1.18, 48]} />
         <meshBasicMaterial
@@ -279,6 +315,8 @@ function ComponentNode(p: {
           {(p.badge || STATUS_LABEL[p.status]) && <div className="asa-label__status">{p.badge ?? STATUS_LABEL[p.status]}</div>}
         </div>
       </Html>
+      </>
+      )}
     </group>
   );
 }
@@ -369,7 +407,7 @@ function PacketView(p: { conn: Connection; from: Vec3; to: Vec3; lane: number; p
   );
 }
 
-function GroupBox(p: { group: Group; model: ArchitectureModel; pos: (id: string) => Vec3; visible: Set<string>; theme: 'dark' | 'light' }) {
+function GroupBox(p: { group: Group; model: ArchitectureModel; pos: (id: string) => Vec3; visible: Set<string>; theme: 'dark' | 'light'; illustrated: boolean }) {
   const depthBelow = (g: Group): number => {
     const kids = p.model.groups.filter((x) => x.parentId === g.id);
     return kids.length ? 1 + Math.max(...kids.map(depthBelow)) : 0;
@@ -384,6 +422,7 @@ function GroupBox(p: { group: Group; model: ArchitectureModel; pos: (id: string)
   const h = 2.6 + d * 0.6;
   const color = p.group.kind === 'vpc' ? '#38bdf8' : p.group.kind === 'subnet' ? (p.group.props.public ? '#22c55e' : '#a78bfa') : '#f59e0b';
   const geo = useMemo(() => new THREE.BoxGeometry(w, h, depth), [w, h, depth]);
+  const illustratedZone = p.illustrated ? <IllustratedZone group={p.group} min={b.min} max={b.max} pad={2.5 + d * 0.9} theme={p.theme} /> : null;
   const edges = useMemo(() => new THREE.EdgesGeometry(geo), [geo]);
   useEffect(
     () => () => {
@@ -392,6 +431,7 @@ function GroupBox(p: { group: Group; model: ArchitectureModel; pos: (id: string)
     },
     [geo, edges]
   );
+  if (illustratedZone) return illustratedZone;
   return (
     <group position={[b.center.x, h / 2 - 0.02, b.center.z]}>
       <mesh geometry={geo} raycast={() => null} renderOrder={-1}>
@@ -412,39 +452,57 @@ function GroupBox(p: { group: Group; model: ArchitectureModel; pos: (id: string)
 
 function CameraRig(p: ArchitectureCanvasProps & { pos: (id: string) => Vec3 }) {
   const camera = useThree((s) => s.camera);
+  const size = useThree((s) => s.size);
   const controls = useThree((s) => s.controls) as unknown as { target: THREE.Vector3; update: () => void } | null;
-  const anim = useRef<{ pos: THREE.Vector3; target: THREE.Vector3; t: number } | null>(null);
+  const anim = useRef<{ pos: THREE.Vector3; target: THREE.Vector3; zoom?: number; t: number } | null>(null);
   const b = bounds(p.model.components.map((c) => p.model.layout.positions[c.id] ?? ORIGIN));
+  const ortho = (camera as THREE.OrthographicCamera).isOrthographicCamera === true;
 
   useEffect(() => {
     const c = new THREE.Vector3(b.center.x, 0, b.center.z);
     const s = b.size;
-    let pos: THREE.Vector3;
     let target = c.clone();
+    let pos: THREE.Vector3;
+    // ortográfica: la distancia no cambia el tamaño; el encuadre lo da el zoom
+    const D = ortho ? 60 : s;
+    const fitZoom = Math.min(size.width / (s * 1.3), size.height / (s * 0.78));
+    let zoom: number | undefined = ortho ? fitZoom : undefined;
     switch (p.camera.view) {
       case 'top':
-        pos = new THREE.Vector3(c.x, s * 1.35, c.z + 0.01);
+        pos = new THREE.Vector3(c.x, ortho ? D : s * 1.35, c.z + 0.01);
+        if (ortho) zoom = Math.min(size.width / (s * 1.25), size.height / (s * 0.8));
         break;
       case 'side':
-        pos = new THREE.Vector3(c.x, 4, c.z + s * 1.15);
-        break;
-      case 'iso':
-        pos = new THREE.Vector3(c.x + s * 0.75, s * 0.75, c.z + s * 0.75);
+        pos = ortho ? new THREE.Vector3(c.x, 6, c.z + D) : new THREE.Vector3(c.x, 4, c.z + s * 1.15);
         break;
       case 'focus': {
         const id = p.selection?.kind === 'component' ? p.selection.id : p.sceneState.focusId;
         if (!id) return;
         const at = p.pos(id);
-        target = new THREE.Vector3(at.x, 0.8, at.z);
-        pos = new THREE.Vector3(at.x + 5, 6, at.z + 8);
+        target = new THREE.Vector3(at.x, 0.6, at.z);
+        pos = ortho ? target.clone().add(new THREE.Vector3(D, D * 0.82, D)) : new THREE.Vector3(at.x + 5, 6, at.z + 8);
+        if (ortho) zoom = fitZoom * 2.4;
         break;
       }
+      case 'iso':
+      case 'perspective':
       default:
-        pos = new THREE.Vector3(c.x - s * 0.2, s * 0.55, c.z + s * 0.85);
+        pos = ortho
+          ? c.clone().add(new THREE.Vector3(D * 0.55, D * 0.82, D))
+          : p.camera.view === 'iso'
+            ? new THREE.Vector3(c.x + s * 0.75, s * 0.75, c.z + s * 0.75)
+            : new THREE.Vector3(c.x - s * 0.2, s * 0.55, c.z + s * 0.85);
     }
-    anim.current = { pos, target, t: 0 };
+    if (ortho && zoom && p.camera.view !== 'focus' && p.camera.view !== 'top') {
+      // desplaza el encuadre hacia abajo para dejar espacio al encabezado de la lección
+      const groundUp = target.clone().sub(pos).setY(0).normalize();
+      const shift = groundUp.multiplyScalar(95 / zoom);
+      target.add(shift);
+      pos.add(shift);
+    }
+    anim.current = zoom !== undefined ? { pos, target, zoom, t: 0 } : { pos, target, t: 0 };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [p.camera.nonce]);
+  }, [p.camera.nonce, ortho]);
 
   useFrame((_, dt) => {
     if (!controls) return;
@@ -454,21 +512,26 @@ function CameraRig(p: ArchitectureCanvasProps & { pos: (id: string) => Vec3 }) {
       const k = 1 - Math.pow(1 - a.t, 3);
       camera.position.lerp(a.pos, k);
       controls.target.lerp(a.target, k);
+      if (ortho && a.zoom) {
+        camera.zoom += (a.zoom - camera.zoom) * k;
+        camera.updateProjectionMatrix();
+      }
       controls.update();
       if (a.t >= 1) anim.current = null;
       return;
     }
     if (p.follow && p.sceneState.focusId) {
       // seguimiento de la solicitud: el objetivo sigue al componente/paquete activo
-      const id = p.sceneState.focusId;
-      const at = p.pos(id);
-      const goal = new THREE.Vector3(at.x, 0.8, at.z);
+      const at = p.pos(p.sceneState.focusId);
+      const goal = new THREE.Vector3(at.x, 0.6, at.z);
       if (p.sceneState.packet) {
         const k = p.model.connections.find((x) => x.id === p.sceneState.packet!.connectionId);
         if (k) {
-          const curve = connectionCurve(p.pos(k.sourceId), p.pos(k.targetId));
+          const a = p.pos(k.sourceId);
+          const z = p.pos(k.targetId);
           const fwd = p.sceneState.packet.fromId === k.sourceId;
-          goal.copy(curve.getPoint(fwd ? p.sceneState.packet.progress : 1 - p.sceneState.packet.progress));
+          const t = fwd ? p.sceneState.packet.progress : 1 - p.sceneState.packet.progress;
+          goal.set(a.x + (z.x - a.x) * t, 0.6, a.z + (z.z - a.z) * t);
         }
       }
       const delta = goal.clone().sub(controls.target).multiplyScalar(Math.min(1, dt * 3));

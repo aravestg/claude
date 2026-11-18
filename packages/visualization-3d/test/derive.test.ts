@@ -21,6 +21,14 @@ describe('deriveSceneState con eventos pregrabados', () => {
     const s = deriveSceneState(events, i, 0.5);
     expect(s.packet).toMatchObject({ connectionId: 'c-user-dns', fromId: 'user', toId: 'dns', progress: 0.5, variant: 'dns' });
     expect(s.focusId).toBe('dns');
+    expect(s.packet?.caption).toBe('DNS shop.example.com A?');
+  });
+  it('el texto del paquete proviene de los datos del evento', () => {
+    const req = deriveSceneState(events, idx('REQUEST_SENT'), 0.3).packet!;
+    expect(req.caption).toBe('GET /api/orders/1001');
+    const resp = deriveSceneState(events, idx('RESPONSE_SENT'), 0.3).packet!;
+    expect(resp).toMatchObject({ caption: 'HTTP 200', variant: 'response' });
+    expect(deriveSceneState(events, idx('DATABASE_QUERY_STARTED'), 0.5).packet!.caption).toBe('SQL SELECT id,…');
   });
   it('al completar la transferencia no hay paquete y el destino queda activo', () => {
     const i = idx('DNS_RESOLUTION_STARTED');

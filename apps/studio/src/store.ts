@@ -6,7 +6,7 @@
 import { create } from 'zustand';
 import type { ArchitectureModel, ChangeProposal, ModelOperation, Recommendation, Scenario, SimulationResult } from '@asa/core-model';
 import { applyOperations, applyProposal, createProposal, decideProposal, getTemplate, parseModel, TEMPLATES } from '@asa/core-model';
-import type { CameraRequest, CameraViewName, LayerKey, Selection, Tool } from '@asa/visualization-3d';
+import type { CameraRequest, CameraViewName, LayerKey, Selection, Tool, VisualStyle } from '@asa/visualization-3d';
 import { advancePlayhead } from '@asa/visualization-3d';
 import { loadCurrent, saveCurrent } from './persistence';
 import { rebaseIfSafe } from './rebase';
@@ -41,6 +41,7 @@ interface StudioState {
   theme: 'dark' | 'light';
   level: 'basic' | 'advanced';
   quality: 'high' | 'low';
+  visualStyle: VisualStyle;
   follow: boolean;
   camera: CameraRequest;
   rightTab: RightTab;
@@ -80,7 +81,7 @@ interface StudioState {
   pickConnect: (id: string) => string | null;
   toggleLayer: (l: LayerKey) => void;
   setCamera: (v: CameraViewName) => void;
-  set: (p: Partial<Pick<StudioState, 'theme' | 'level' | 'quality' | 'follow' | 'rightTab'>>) => void;
+  set: (p: Partial<Pick<StudioState, 'theme' | 'level' | 'quality' | 'follow' | 'rightTab' | 'visualStyle'>>) => void;
   propose: (p: ChangeProposal) => void;
   decide: (decision: 'approved' | 'rejected' | 'postponed') => void;
   decideRecommendation: (id: string, d: RecDecision) => void;
@@ -126,9 +127,10 @@ export const useStudio = create<StudioState>((set, get) => ({
   tool: 'select',
   connectFrom: null,
   hiddenLayers: new Set(),
-  theme: 'dark',
+  theme: 'light',
   level: 'basic',
   quality: 'high',
+  visualStyle: 'illustrated',
   follow: false,
   camera: { view: 'perspective', nonce: 0 },
   rightTab: 'inspector',
@@ -217,7 +219,7 @@ export const useStudio = create<StudioState>((set, get) => ({
     const tpl = TEMPLATES.find((t) => t.id === parsed.value.id)?.id ?? get().templateId;
     get().loadModel(parsed.value, tpl, `Modelo importado: ${parsed.value.name}`);
   },
-  setScenario: (id) => set({ scenarioId: id, playing: false }),
+  setScenario: (id) => set({ scenarioId: id, playing: false, result: null, cursor: -1, progress: 0 }),
   prepareScenario: () => {
     const s = get().scenarios.find((x) => x.id === get().scenarioId);
     if (!s?.setup?.length) return;

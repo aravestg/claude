@@ -16,6 +16,8 @@ export interface PacketState {
   status: EventStatus;
   variant: 'dns' | 'syn' | 'request' | 'response' | 'query' | 'rst' | 'error';
   label: string;
+  /** Texto del mensaje en vuelo, tomado de los datos del evento (no inventado). */
+  caption: string;
 }
 
 export interface SceneState {
@@ -55,6 +57,32 @@ function variantOf(e: SimulationEvent): PacketState['variant'] {
       return 'error';
     default:
       return 'request';
+  }
+}
+
+/** Texto corto del mensaje transportado, derivado de `event.data`. */
+export function captionFor(e: SimulationEvent): string {
+  const d = e.data;
+  switch (e.type) {
+    case 'DNS_RESOLUTION_STARTED':
+      return `DNS ${String(d['query'] ?? '?')}`;
+    case 'DNS_RESOLVED':
+      return d['rcode'] ? `DNS ${String(d['rcode'])}` : `DNS → ${String(d['resolvedTo'] ?? '')}`;
+    case 'CONNECTION_ATTEMPTED':
+      return `SYN :${String(d.port ?? '')}`;
+    case 'CONNECTION_REFUSED':
+      return 'RST ✕';
+    case 'DATABASE_QUERY_STARTED':
+      return d['statement'] ? `SQL ${String(d['statement']).split(' ').slice(0, 2).join(' ')}…` : `${String(d['operation'] ?? 'query')}`;
+    case 'DATABASE_QUERY_COMPLETED':
+      return d['queryMs'] !== undefined ? `resultado · ${String(d['queryMs'])} ms` : 'resultado';
+    case 'RESPONSE_SENT':
+    case 'ERROR_RETURNED':
+      return d.httpStatus !== undefined ? `HTTP ${String(d.httpStatus)}` : 'respuesta';
+    case 'REQUEST_SENT':
+      return `${String(d.method ?? '')} ${String(d.path ?? '')}`.trim() || 'solicitud';
+    default:
+      return e.type;
   }
 }
 
@@ -135,7 +163,8 @@ export function deriveSceneState(events: readonly SimulationEvent[], cursor: num
           progress,
           status: e.status,
           variant: variantOf(e),
-          label: String(e.data.protocol ?? '') + (e.data.port ? `:${String(e.data.port)}` : '')
+          label: String(e.data.protocol ?? '') + (e.data.port ? `:${String(e.data.port)}` : ''),
+          caption: captionFor(e)
         };
       } else if (!down.has(e.targetId)) {
         state.components[e.targetId] = { status: vs === 'error' ? 'error' : 'active' };
