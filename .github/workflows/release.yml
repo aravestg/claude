@@ -1,0 +1,113 @@
+name: Release
+
+# Flujo: tag SemVer firmado vX.Y.Z (o vX.Y.Z-rc.N) en main → verificación completa → build →
+# SBOM + checksums + attestation de procedencia → GitHub Release → despliegue.
+# El despliegue a producción usa el environment "production" con revisores requeridos
+# (configurar en Settings → Environments). La aprobación del environment es la evidencia
+# de que el cambio pasó por CAB.
+
+on:
+  push:
+    tags: ['v[0-9]+.[0-9]+.[0-9]+', 'v[0-9]+.[0-9]+.[0-9]+-rc.[0-9]+']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Verificar y construir
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - uses: step-security/harden-runner@aebdcf6156ab6691adf63218240e476564a1ed4c # v2.23.0
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: version
+        name: El tag debe coincidir con package.json
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG="$(node -p "require('./package.json').version")"
+          BASE="${TAG%%-rc.*}"
+          if [ "$BASE" != "$PKG" ]; then echo "::error::Tag $TAG no coincide con package.json $PKG"; exit 1; fi
+          echo "version=$TAG" >> "$GITHUB_OUTPUT"
+          if [[ "$TAG" == *-rc.* ]]; then echo "prerelease=true" >> "$GITHUB_OUTPUT"; else echo "prerelease=false" >> "$GITHUB_OUTPUT"; fi
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm audit --audit-level=high
+      - run: pnpm typecheck
+      - run: pnpm test:coverage
+      - name: Build (base path de GitHub Pages)
+        run: pnpm build
+        env:
+          ASA_BASE_PATH: /${{ github.event.repository.name }}/
+      - name: Empaquetar
+        run: |
+          mkdir -p release
+          tar -czf "release/architecture-studio-ai-${{ steps.version.outputs.version }}.tar.gz" -C apps/studio/dist .
+          (cd release && sha256sum *.tar.gz > SHA256SUMS.txt)
+      - uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          path: .
+          format: cyclonedx-json
+          output-file: release/sbom.cdx.json
+          upload-artifact: false
+      - uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
+        with:
+          subject-path: release/*.tar.gz
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release
+          path: release/
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: apps/studio/dist/
+
+  publish:
+    name: GitHub Release
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release
+          path: release
+      - uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
+        with:
+          files: release/*
+          prerelease: ${{ needs.build.outputs.prerelease == 'true' }}
+          generate_release_notes: true
+
+  deploy:
+    name: Desplegar (gate CAB)
+    needs: [build, publish]
+    if: needs.build.outputs.prerelease == 'false'
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: production
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

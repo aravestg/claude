@@ -1,0 +1,22 @@
+{
+  "name": "@asa/simulation-engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Simulation Engine: ejecución determinista de escenarios sobre el modelo. Sin dependencias de UI ni gráficas.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "sim": "tsx src/cli.ts",
+    "golden": "tsx test/update-golden.ts"
+  },
+  "dependencies": {
+    "@asa/core-model": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "4.23.15",
+    "@types/node": "22.20.5"
+  }
+}

@@ -1,0 +1,868 @@
+{
+  "contractVersion": "1.0.0",
+  "simulationId": "sim-f04c3c04",
+  "scenarioId": "A-success",
+  "modelRevision": 0,
+  "events": [
+    {
+      "id": "sim-f04c3c04:0000",
+      "simulationId": "sim-f04c3c04",
+      "seq": 0,
+      "t": 0,
+      "duration": 0,
+      "type": "SIMULATION_STARTED",
+      "kind": "state",
+      "status": "info",
+      "traceId": "trace-system",
+      "data": {
+        "scenarioId": "A-success",
+        "requestCount": 1,
+        "faults": 0,
+        "contractVersion": "1.0.0"
+      },
+      "message": "Simulación \"A · Comunicación exitosa\" iniciada",
+      "explanation": {
+        "basic": "Una solicitud HTTPS atraviesa DNS, firewall y balanceador, el backend consulta PostgreSQL y el cliente recibe 200.",
+        "advanced": "1 solicitud(es), 0 falla(s) inyectada(s). Ejecución determinista con reloj lógico."
+      },
+      "observableInRealSystem": true,
+      "provenance": "simulation:rule-based"
+    },
+    {
+      "id": "sim-f04c3c04:0001",
+      "simulationId": "sim-f04c3c04",
+      "seq": 1,
+      "t": 0,
+      "duration": 0,
+      "type": "REQUEST_STARTED",
+      "kind": "state",
+      "status": "info",
+      "traceId": "trace-01",
+      "data": {
+        "method": "GET",
+        "path": "/api/orders/1001",
+        "host": "shop.example.com",
+        "payload": {
+          "orderId": "ORD-1001",
+          "customer": "cliente-sintético-42"
+        }
+      },
+      "message": "Usuario inicia GET https://shop.example.com/api/orders/1001",
+      "explanation": {
+        "basic": "El usuario hace una petición a la aplicación.",
+        "advanced": "Payload sintético. Timeout del cliente 10000 ms. Origen 203.0.113.10."
+      },
+      "observableInRealSystem": true,
+      "provenance": "simulation:rule-based",
+      "sourceId": "user"
+    },
+    {
+      "id": "sim-f04c3c04:0002",
+      "simulationId": "sim-f04c3c04",
+      "seq": 2,
+      "t": 0,
+      "duration": 10,
+      "type": "DNS_RESOLUTION_STARTED",
+      "kind": "transfer",
+      "status": "active",
+      "traceId": "trace-01",
+      "data": {
+        "protocol": "DNS",
+        "port": 53,
+        "query": "shop.example.com A?"
+      },
+      "message": "Consulta DNS: shop.example.com",
+      "explanation": {
+        "basic": "El navegador pregunta en qué dirección está la aplicación.",
+        "advanced": "Consulta A/ALIAS por UDP/53."
+      },
+      "observableInRealSystem": true,
+      "provenance": "simulation:rule-based",
+      "sourceId": "user",
+      "targetId": "dns",
+      "connectionId": "c-user-dns",
+      "causedBy": "sim-f04c3c04:0001"
+    },
+    {
+      "id": "sim-f04c3c04:0003",
+      "simulationId": "sim-f04c3c04",
+      "seq": 3,
+      "t": 22,
+      "duration": 10,
+      "type": "DNS_RESOLVED",
+      "kind": "transfer",
+      "status": "success",
+      "traceId": "trace-01",
+      "data": {
+        "host": "shop.example.com",
+        "resolvedTo": "lb",
+        "ttl": 60
+      },
+      "message": "DNS: shop.example.com → Load Balancer",
+      "explanation": {
+        "basic": "El DNS responde: la aplicación está en Load Balancer.",
+        "advanced": "Registro ALIAS hacia lb (TTL 60 s supuesto)."
+      },
+      "observableInRealSystem": true,
+      "provenance": "simulation:rule-based",
+      "sourceId": "dns",
+      "targetId": "user",
+      "connectionId": "c-user-dns",
+      "causedBy": "sim-f04c3c04:0002"
+    },
+    {
+      "id": "sim-f04c3c04:0004",
+      "simulationId": "sim-f04c3c04",
+      "seq": 4,
+      "t": 32,
+      "duration": 20,
+      "type": "CONNECTION_ATTEMPTED",
+      "kind": "transfer",
+      "status": "active",
+      "traceId": "trace-01",
+      "data": {
+        "protocol": "HTTPS",
+        "port": 443,
+        "tcp": "SYN"
+      },
+      "message": "TCP SYN Usuario → Internet (HTTPS:443)",
+      "explanation": {
+        "basic": "Se intenta abrir la conexión.",
+        "advanced": "Primer paquete del handshake TCP hacia :443."
+      },
+      "observableInRealSystem": true,
+      "provenance": "simulation:rule-based",
+      "sourceId": "user",
+      "targetId": "internet",
+      "connectionId": "c-user-net",
+      "causedBy": "sim-f04c3c04:0003"
+    },
+    {
+      "id": "sim-f04c3c04:0005",
+      "simulationId": "sim-f04c3c04",
+      "seq": 5,
+      "t": 52,
+      "duration": 15,
+      "type": "CONNECTION_ATTEMPTED",
+      "kind": "transfer",
+      "status": "active",
+      "traceId": "trace-01",
+      "data": {
+        "protocol": "HTTPS",
+        "port": 443,
+        "tcp": "SYN"
+      },
+      "message": "TCP SYN Internet → Firewall perimetral (HTTPS:443)",
+      "explanation": {
+        "basic": "Se intenta abrir la conexión.",
+        "advanced": "Primer paquete del handshake TCP hacia :443."
+      },
+      "observableInRealSystem": true,
+      "provenance": "simulation:rule-based",
+      "sourceId": "internet",
+      "targetId": "fw",
+      "connectionId": "c-net-fw",
+      "causedBy": "sim-f04c3c04:0004"
+    },
+    {
+      "id": "sim-f04c3c04:0006",
+      "simulationId": "sim-f04c3c04",
+      "seq": 6,
+      "t": 68,
+      "duration": 0,
+      "type": "RULE_EVALUATED",
+      "kind": "state",
+      "status": "success",
+      "traceId": "trace-01",
+      "data": {
+        "protocol": "HTTPS",
+        "port": 443,
+        "sourceIp": "203.0.113.10",
+        "ruleId": "allow-https",
+        "action": "allow"
+      },
+      "message": "Firewall perimetral PERMITE HTTPS:443 por regla \"allow-https\" (prioridad 100)",
+      "explanation": {
+        "basic": "El firewall revisa sus reglas y deja pasar la conexión.",
+        "advanced": "Stateful: la conexión queda registrada en la tabla de estado y las respuestas regresan sin reevaluar reglas."
+      },
+      "observableInRealSystem": true,
+      "provenance": "simulation:rule-based",
+      "sourceId": "fw",
+      "causedBy": "sim-f04c3c04:0005"
+    },
+    {
+      "id": "sim-f04c3c04:0007",
+      "simulationId": "sim-f04c3c04",
+      "seq": 7,
+      "t": 68,
+      "duration": 1,
+      "type": "CONNECTION_ATTEMPTED",
+      "kind": "transfer",
+      "status": "active",
+      "traceId": "trace-01",
+      "data": {
+        "protocol": "HTTPS",
+        "port": 443,
+        "tcp": "SYN"
+      },
+      "message": "TCP SYN Firewall perimetral → Load Balancer (HTTPS:443)",
+      "explanation": {
+        "basic": "Se intenta abrir la conexión.",
+        "advanced": "Primer paquete del handshake TCP hacia :443."
+      },
+      "observableInRealSystem": true,
+      "provenance": "simulation:rule-based",
+      "sourceId": "fw",
+      "targetId": "lb",
+      "connectionId": "c-fw-lb",
+      "causedBy": "sim-f04c3c04:0006"
+    },
+    {
+      "id": "sim-f04c3c04:0008",
+      "simulationId": "sim-f04c3c04",
+      "seq": 8,
+      "t": 69,
+      "duration": 36,
+      "type": "CONNECTION_ESTABLISHED",
+      "kind": "state",
+      "status": "success",
+      "traceId": "trace-01",
+      "data": {
+        "protocol": "HTTPS",
+        "port": 443,
+        "with": "lb",
+        "rttMs": 36
+      },
+      "message": "Conexión TCP establecida con Load Balancer (RTT 36 ms)",
+      "explanation": {
+        "basic": "La conexión quedó abierta.",
+        "advanced": "SYN-ACK y ACK completan el handshake de 3 vías."
+      },
+      "observableInRealSystem": true,
+      "provenance": "simulation:rule-based",
+      "sourceId": "user",
+      "causedBy": "sim-f04c3c04:0007"
+    },
+    {
+      "id": "sim-f04c3c04:0009",
+      "simulationId": "sim-f04c3c04",
+      "seq": 9,
+      "t": 105,
+      "duration": 36,
+      "type": "TLS_HANDSHAKE_COMPLETED",
+      "kind": "state",
+      "status": "success",
+      "traceId": "trace-01",
+      "data": {
+        "tls": "TLS 1.3",
+        "terminatedAt": "lb"
+      },
+      "message": "TLS 1.3 negociado con Load Balancer",
+      "explanation": {
+        "basic": "Se establece un canal cifrado.",
+        "advanced": "TLS 1.3 (1-RTT). El certificado se valida contra el nombre DNS."
+      },
+      "observableInRealSystem": true,
+      "provenance": "simulation:rule-based",
+      "sourceId": "user",
+      "causedBy": "sim-f04c3c04:0008"
+    },
+    {
+      "id": "sim-f04c3c04:0010",
+      "simulationId": "sim-f04c3c04",
+      "seq": 10,
+      "t": 141,
+      "duration": 20,
+      "type": "REQUEST_SENT",
+      "kind": "transfer",
+      "status": "active",
+      "traceId": "trace-01",
+      "data": {
+        "protocol": "HTTPS",
+        "port": 443,
+        "method": "GET",
+        "path": "/api/orders/1001",
+        "headers": {
+          "x-request-id": "sim-f04c3c04-1",
+          "traceparent": "00-5e6fb02e000000000000000000000000-350ca8af00000000-01",
+          "content-type": "application/json"
+        },
+        "payload": {
+          "orderId": "ORD-1001",
+          "customer": "cliente-sintético-42"
+        }
+      },
+      "message": "GET /api/orders/1001: Usuario → Internet",
+      "explanation": {
+        "basic": "La solicitud viaja hacia la aplicación.",
+        "advanced": "HTTPS:443 (cifrado TLS)."
+      },
+      "observableInRealSystem": true,
+      "provenance": "simulation:rule-based",
+      "sourceId": "user",
+      "targetId": "internet",
+      "connectionId": "c-user-net",
+      "causedBy": "sim-f04c3c04:0009"
+    },
+    {
+      "id": "sim-f04c3c04:0011",
+      "simulationId": "sim-f04c3c04",
+      "seq": 11,
+      "t": 161,
+      "duration": 15,
+      "type": "REQUEST_SENT",
+      "kind": "transfer",
+      "status": "active",
+      "traceId": "trace-01",
+      "data": {
+        "protocol": "HTTPS",
+        "port": 443,
+        "method": "GET",
+        "path": "/api/orders/1001",
+        "headers": {
+          "x-request-id": "sim-f04c3c04-1",
+          "traceparent": "00-5e6fb02e000000000000000000000000-350ca8af00000000-01",
+          "content-type": "application/json"
+        },
+        "payload": {
+          "orderId": "ORD-1001",
+          "customer": "cliente-sintético-42"
+        }
+      },
+      "message": "GET /api/orders/1001: Internet → Firewall perimetral",
+      "explanation": {
+        "basic": "La solicitud viaja hacia la aplicación.",
+        "advanced": "HTTPS:443 (cifrado TLS)."
+      },
+      "observableInRealSystem": true,
+      "provenance": "simulation:rule-based",
+      "sourceId": "internet",
+      "targetId": "fw",
+      "connectionId": "c-net-fw",
+      "causedBy": "sim-f04c3c04:0010"
+    },
+    {
+      "id": "sim-f04c3c04:0012",
+      "simulationId": "sim-f04c3c04",
+      "seq": 12,
+      "t": 176,
+      "duration": 1,
+      "type": "REQUEST_SENT",
+      "kind": "transfer",
+      "status": "active",
+      "traceId": "trace-01",
+      "data": {
+        "protocol": "HTTPS",
+        "port": 443,
+        "method": "GET",
+        "path": "/api/orders/1001",
+        "headers": {
+          "x-request-id": "sim-f04c3c04-1",
+          "traceparent": "00-5e6fb02e000000000000000000000000-350ca8af00000000-01",
+          "content-type": "application/json"
+        },
+        "payload": {
+          "orderId": "ORD-1001",
+          "customer": "cliente-sintético-42"
+        }
+      },
+      "message": "GET /api/orders/1001: Firewall perimetral → Load Balancer",
+      "explanation": {
+        "basic": "La solicitud viaja hacia la aplicación.",
+        "advanced": "HTTPS:443 (cifrado TLS)."
+      },
+      "observableInRealSystem": true,
+      "provenance": "simulation:rule-based",
+      "sourceId": "fw",
+      "targetId": "lb",
+      "connectionId": "c-fw-lb",
+      "causedBy": "sim-f04c3c04:0011"
+    },
+    {
+      "id": "sim-f04c3c04:0013",
+      "simulationId": "sim-f04c3c04",
+      "seq": 13,
+      "t": 177,
+      "duration": 0,
+      "type": "REQUEST_RECEIVED",
+      "kind": "state",
+      "status": "info",
+      "traceId": "trace-01",
+      "data": {
+        "method": "GET",
+        "path": "/api/orders/1001"
+      },
+      "message": "Load Balancer recibe GET /api/orders/1001",
+      "explanation": {
+        "basic": "Load Balancer recibe la solicitud.",
+        "advanced": "Entrada por HTTPS:443."
+      },
+      "observableInRealSystem": true,
+      "provenance": "simulation:rule-based",
+      "sourceId": "lb",
+      "causedBy": "sim-f04c3c04:0012"
+    },
+    {
+      "id": "sim-f04c3c04:0014",
+      "simulationId": "sim-f04c3c04",
+      "seq": 14,
+      "t": 179,
+      "duration": 0,
+      "type": "BACKEND_SELECTED",
+      "kind": "state",
+      "status": "info",
+      "traceId": "trace-01",
+      "data": {
+        "target": "app-1",
+        "algorithm": "round_robin",
+        "candidates": [
+          "app-1",
+          "app-2"
+        ]
+      },
+      "message": "Load Balancer selecciona Backend A (AZ-a) (round robin)",
+      "explanation": {
+        "basic": "El balanceador elige Backend A (AZ-a) para atender esta solicitud.",
+        "advanced": "Round robin sobre 2 destino(s) saludable(s). TLS terminado en el balanceador; reenvía HTTP:8080."
+      },
+      "observableInRealSystem": true,
+      "provenance": "simulation:rule-based",
+      "sourceId": "lb",
+      "causedBy": "sim-f04c3c04:0013"
+    },
+    {
+      "id": "sim-f04c3c04:0015",
+      "simulationId": "sim-f04c3c04",
+      "seq": 15,
+      "t": 179,
+      "duration": 1,
+      "type": "REQUEST_SENT",
+      "kind": "transfer",
+      "status": "active",
+      "traceId": "trace-01",
+      "data": {
+        "protocol": "HTTP",
+        "port": 8080,
+        "method": "GET",
+        "path": "/api/orders/1001",
+        "headers": {
+          "x-request-id": "sim-f04c3c04-1",
+          "traceparent": "00-5e6fb02e000000000000000000000000-350ca8af00000000-01",
+          "content-type": "application/json"
+        },
+        "payload": {
+          "orderId": "ORD-1001",
+          "customer": "cliente-sintético-42"
+        }
+      },
+      "message": "Load Balancer → Backend A (AZ-a): GET /api/orders/1001 (HTTP:8080)",
+      "explanation": {
+        "basic": "Load Balancer reenvía la solicitud a Backend A (AZ-a).",
+        "advanced": "Tramo HTTP:8080, latencia estimada 1 ms, sin cifrado (red privada)."
+      },
+      "observableInRealSystem": true,
+      "provenance": "simulation:rule-based",
+      "sourceId": "lb",
+      "targetId": "app-1",
+      "connectionId": "c-lb-app1",
+      "causedBy": "sim-f04c3c04:0014"
+    },
+    {
+      "id": "sim-f04c3c04:0016",
+      "simulationId": "sim-f04c3c04",
+      "seq": 16,
+      "t": 180,
+      "duration": 0,
+      "type": "REQUEST_RECEIVED",
+      "kind": "state",
+      "status": "info",
+      "traceId": "trace-01",
+      "data": {
+        "method": "GET",
+        "path": "/api/orders/1001"
+      },
+      "message": "Backend A (AZ-a) recibe GET /api/orders/1001",
+      "explanation": {
+        "basic": "Backend A (AZ-a) recibe la solicitud.",
+        "advanced": "Solicitud aceptada en HTTP:8080."
+      },
+      "observableInRealSystem": true,
+      "provenance": "simulation:rule-based",
+      "sourceId": "app-1",
+      "causedBy": "sim-f04c3c04:0015"
+    },
+    {
+      "id": "sim-f04c3c04:0017",
+      "simulationId": "sim-f04c3c04",
+      "seq": 17,
+      "t": 180,
+      "duration": 15,
+      "type": "PROCESSING_STARTED",
+      "kind": "state",
+      "status": "active",
+      "traceId": "trace-01",
+      "data": {
+        "runtime": "Node.js 22"
+      },
+      "message": "Backend A (AZ-a) procesa GET /api/orders/1001",
+      "explanation": {
+        "basic": "Backend A (AZ-a) ejecuta la lógica de negocio.",
+        "advanced": "Runtime Node.js 22; tiempo de procesamiento estimado 15 ms."
+      },
+      "observableInRealSystem": true,
+      "provenance": "simulation:rule-based",
+      "sourceId": "app-1",
+      "causedBy": "sim-f04c3c04:0016"
+    },
+    {
+      "id": "sim-f04c3c04:0018",
+      "simulationId": "sim-f04c3c04",
+      "seq": 18,
+      "t": 195,
+      "duration": 0,
+      "type": "POOL_CONNECTION_ACQUIRED",
+      "kind": "state",
+      "status": "info",
+      "traceId": "trace-01",
+      "data": {
+        "poolSize": 10,
+        "attempt": 1
+      },
+      "message": "Backend A (AZ-a) toma una conexión del pool",
+      "explanation": {
+        "basic": "Se reutiliza una conexión ya abierta hacia la base de datos.",
+        "advanced": "Pool de 10 conexiones; evita el costo de handshake TCP+TLS+auth por consulta."
+      },
+      "observableInRealSystem": true,
+      "provenance": "simulation:rule-based",
+      "sourceId": "app-1",
+      "causedBy": "sim-f04c3c04:0017"
+    },
+    {
+      "id": "sim-f04c3c04:0019",
+      "simulationId": "sim-f04c3c04",
+      "seq": 19,
+      "t": 195,
+      "duration": 1,
+      "type": "DATABASE_QUERY_STARTED",
+      "kind": "transfer",
+      "status": "active",
+      "traceId": "trace-01",
+      "data": {
+        "protocol": "JDBC",
+        "port": 5432,
+        "attempt": 1,
+        "statement": "SELECT id, status, total FROM orders WHERE id = $1",
+        "params": [
+          "ORD-1001"
+        ]
+      },
+      "message": "Backend A (AZ-a) → PostgreSQL: consulta SQL",
+      "explanation": {
+        "basic": "Backend A (AZ-a) pide datos a PostgreSQL.",
+        "advanced": "JDBC:5432, latencia estimada 1 ms."
+      },
+      "observableInRealSystem": true,
+      "provenance": "simulation:rule-based",
+      "sourceId": "app-1",
+      "targetId": "db",
+      "connectionId": "c-app1-db",
+      "causedBy": "sim-f04c3c04:0018"
+    },
+    {
+      "id": "sim-f04c3c04:0020",
+      "simulationId": "sim-f04c3c04",
+      "seq": 20,
+      "t": 204,
+      "duration": 1,
+      "type": "DATABASE_QUERY_COMPLETED",
+      "kind": "transfer",
+      "status": "success",
+      "traceId": "trace-01",
+      "data": {
+        "protocol": "JDBC",
+        "port": 5432,
+        "result": {
+          "rows": 1,
+          "orderStatus": "APPROVED"
+        },
+        "queryMs": 8
+      },
+      "message": "PostgreSQL → Backend A (AZ-a): resultado (8 ms)",
+      "explanation": {
+        "basic": "La base de datos devuelve los datos pedidos.",
+        "advanced": "Tiempo de consulta estimado 8 ms (PostgreSQL 16)."
+      },
+      "observableInRealSystem": true,
+      "provenance": "simulation:rule-based",
+      "sourceId": "db",
+      "targetId": "app-1",
+      "connectionId": "c-app1-db",
+      "causedBy": "sim-f04c3c04:0019"
+    },
+    {
+      "id": "sim-f04c3c04:0021",
+      "simulationId": "sim-f04c3c04",
+      "seq": 21,
+      "t": 205,
+      "duration": 1,
+      "type": "RESPONSE_SENT",
+      "kind": "transfer",
+      "status": "success",
+      "traceId": "trace-01",
+      "data": {
+        "protocol": "HTTP",
+        "port": 8080,
+        "httpStatus": 200,
+        "payload": {
+          "orderId": "ORD-1001",
+          "customer": "cliente-sintético-42",
+          "status": "APPROVED",
+          "total": 1250.5,
+          "source": "synthetic",
+          "db": {
+            "rows": 1,
+            "orderStatus": "APPROVED"
+          }
+        }
+      },
+      "message": "Backend A (AZ-a) → Load Balancer: 200 OK",
+      "explanation": {
+        "basic": "Backend A (AZ-a) devuelve la respuesta.",
+        "advanced": "Respuesta 200 OK por HTTP."
+      },
+      "observableInRealSystem": true,
+      "provenance": "simulation:rule-based",
+      "sourceId": "app-1",
+      "targetId": "lb",
+      "connectionId": "c-lb-app1",
+      "causedBy": "sim-f04c3c04:0020"
+    },
+    {
+      "id": "sim-f04c3c04:0022",
+      "simulationId": "sim-f04c3c04",
+      "seq": 22,
+      "t": 206,
+      "duration": 1,
+      "type": "RESPONSE_SENT",
+      "kind": "transfer",
+      "status": "success",
+      "traceId": "trace-01",
+      "data": {
+        "protocol": "HTTPS",
+        "port": 443,
+        "httpStatus": 200,
+        "payload": {
+          "orderId": "ORD-1001",
+          "customer": "cliente-sintético-42",
+          "status": "APPROVED",
+          "total": 1250.5,
+          "source": "synthetic",
+          "db": {
+            "rows": 1,
+            "orderStatus": "APPROVED"
+          }
+        }
+      },
+      "message": "200 OK: Load Balancer → Firewall perimetral",
+      "explanation": {
+        "basic": "La respuesta regresa al usuario.",
+        "advanced": "Respuesta por la misma conexión (stateful)."
+      },
+      "observableInRealSystem": true,
+      "provenance": "simulation:rule-based",
+      "sourceId": "lb",
+      "targetId": "fw",
+      "connectionId": "c-fw-lb",
+      "causedBy": "sim-f04c3c04:0021"
+    },
+    {
+      "id": "sim-f04c3c04:0023",
+      "simulationId": "sim-f04c3c04",
+      "seq": 23,
+      "t": 207,
+      "duration": 15,
+      "type": "RESPONSE_SENT",
+      "kind": "transfer",
+      "status": "success",
+      "traceId": "trace-01",
+      "data": {
+        "protocol": "HTTPS",
+        "port": 443,
+        "httpStatus": 200,
+        "payload": {
+          "orderId": "ORD-1001",
+          "customer": "cliente-sintético-42",
+          "status": "APPROVED",
+          "total": 1250.5,
+          "source": "synthetic",
+          "db": {
+            "rows": 1,
+            "orderStatus": "APPROVED"
+          }
+        }
+      },
+      "message": "200 OK: Firewall perimetral → Internet",
+      "explanation": {
+        "basic": "La respuesta regresa al usuario.",
+        "advanced": "Respuesta por la misma conexión (stateful)."
+      },
+      "observableInRealSystem": true,
+      "provenance": "simulation:rule-based",
+      "sourceId": "fw",
+      "targetId": "internet",
+      "connectionId": "c-net-fw",
+      "causedBy": "sim-f04c3c04:0022"
+    },
+    {
+      "id": "sim-f04c3c04:0024",
+      "simulationId": "sim-f04c3c04",
+      "seq": 24,
+      "t": 222,
+      "duration": 20,
+      "type": "RESPONSE_SENT",
+      "kind": "transfer",
+      "status": "success",
+      "traceId": "trace-01",
+      "data": {
+        "protocol": "HTTPS",
+        "port": 443,
+        "httpStatus": 200,
+        "payload": {
+          "orderId": "ORD-1001",
+          "customer": "cliente-sintético-42",
+          "status": "APPROVED",
+          "total": 1250.5,
+          "source": "synthetic",
+          "db": {
+            "rows": 1,
+            "orderStatus": "APPROVED"
+          }
+        }
+      },
+      "message": "200 OK: Internet → Usuario",
+      "explanation": {
+        "basic": "La respuesta regresa al usuario.",
+        "advanced": "Respuesta por la misma conexión (stateful)."
+      },
+      "observableInRealSystem": true,
+      "provenance": "simulation:rule-based",
+      "sourceId": "internet",
+      "targetId": "user",
+      "connectionId": "c-user-net",
+      "causedBy": "sim-f04c3c04:0023"
+    },
+    {
+      "id": "sim-f04c3c04:0025",
+      "simulationId": "sim-f04c3c04",
+      "seq": 25,
+      "t": 242,
+      "duration": 0,
+      "type": "RESPONSE_RECEIVED",
+      "kind": "state",
+      "status": "success",
+      "traceId": "trace-01",
+      "data": {
+        "httpStatus": 200,
+        "payload": {
+          "orderId": "ORD-1001",
+          "customer": "cliente-sintético-42",
+          "status": "APPROVED",
+          "total": 1250.5,
+          "source": "synthetic",
+          "db": {
+            "rows": 1,
+            "orderStatus": "APPROVED"
+          }
+        }
+      },
+      "message": "Usuario recibe 200 OK",
+      "explanation": {
+        "basic": "El usuario recibe la respuesta correcta.",
+        "advanced": "Solicitud completada."
+      },
+      "observableInRealSystem": true,
+      "provenance": "simulation:rule-based",
+      "sourceId": "user",
+      "causedBy": "sim-f04c3c04:0024"
+    },
+    {
+      "id": "sim-f04c3c04:0026",
+      "simulationId": "sim-f04c3c04",
+      "seq": 26,
+      "t": 242,
+      "duration": 0,
+      "type": "REQUEST_COMPLETED",
+      "kind": "state",
+      "status": "success",
+      "traceId": "trace-01",
+      "data": {
+        "httpStatus": 200,
+        "outcome": "response"
+      },
+      "message": "Solicitud 1 completada con éxito",
+      "explanation": {
+        "basic": "Todo funcionó.",
+        "advanced": "Duración lógica total 242 ms."
+      },
+      "observableInRealSystem": true,
+      "provenance": "simulation:rule-based",
+      "sourceId": "user",
+      "causedBy": "sim-f04c3c04:0025"
+    },
+    {
+      "id": "sim-f04c3c04:0027",
+      "simulationId": "sim-f04c3c04",
+      "seq": 27,
+      "t": 242,
+      "duration": 0,
+      "type": "SIMULATION_COMPLETED",
+      "kind": "state",
+      "status": "success",
+      "traceId": "trace-system",
+      "data": {
+        "ok": 1,
+        "total": 1
+      },
+      "message": "Simulación finalizada: 1/1 solicitudes exitosas",
+      "explanation": {
+        "basic": "La arquitectura respondió como se esperaba.",
+        "advanced": "Simulación conceptual basada en reglas sobre el modelo. Latencias y tiempos son estimaciones; no es una medición de infraestructura real."
+      },
+      "observableInRealSystem": true,
+      "provenance": "simulation:rule-based",
+      "causedBy": "sim-f04c3c04:0000"
+    }
+  ],
+  "requests": [
+    {
+      "traceId": "trace-01",
+      "index": 0,
+      "startedAt": 0,
+      "finishedAt": 242,
+      "ok": true,
+      "path": [
+        "user",
+        "dns",
+        "internet",
+        "fw",
+        "lb",
+        "app-1",
+        "db"
+      ],
+      "httpStatus": 200
+    }
+  ],
+  "outcome": "success",
+  "affectedComponentIds": [],
+  "provenance": {
+    "mode": "simulation:rule-based",
+    "disclaimer": "Simulación conceptual basada en reglas sobre el modelo. Latencias y tiempos son estimaciones; no es una medición de infraestructura real.",
+    "assumptions": [
+      "Latencias de red y tiempos de procesamiento son estimaciones conceptuales, no mediciones.",
+      "El TLS termina en el Load Balancer; el tráfico interno LB → backend usa HTTP en red privada.",
+      "Las solicitudes de un escenario se procesan secuencialmente."
+    ]
+  }
+}
