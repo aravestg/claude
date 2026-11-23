@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
-import { compatibleProtocols, defaultPortFor, nextId } from '@asa/core-model';
+import { compatibleProtocols, defaultPortFor, flowLayout, nextId } from '@asa/core-model';
 import type { LayerKey } from '@asa/visualization-3d';
 import { ArchitectureCanvas, deriveSceneState } from '@asa/visualization-3d';
 import { useStudio } from '../store';
 
 const LAYERS: { key: LayerKey; label: string }[] = [
-  { key: 'infrastructure', label: 'Infraestructura (VPC/subredes)' },
+  { key: 'groups', label: 'Zonas (VPC, subredes, grupos)' },
   { key: 'network', label: 'Redes' },
   { key: 'application', label: 'Aplicaciones' },
   { key: 'integration', label: 'Integraciones' },
@@ -92,6 +92,19 @@ export function Viewport() {
           ))}
         </div>
         <div className="seg">
+          <button
+            onClick={() => {
+              const pos = flowLayout(s.model);
+              if (s.apply(Object.entries(pos).map(([componentId, position]) => ({ op: 'move_component' as const, componentId, position })), 'Disposición ordenada por flujo (Ctrl+Z para deshacer). Las zonas se ocultan: actívelas en «Capas».')) {
+                if (!s.hiddenLayers.has('groups')) s.toggleLayer('groups');
+                s.setCamera(s.templateId === 'imported' ? 'front' : 'perspective');
+              }
+            }}
+            title="Reordena la escena de izquierda a derecha según el recorrido del tráfico (sólo presentación)"
+            data-testid="flow-layout"
+          >
+            ⇢ Ordenar flujo
+          </button>
           <button className={s.follow ? 'on' : ''} onClick={() => s.set({ follow: !s.follow })} aria-pressed={s.follow} title="La cámara acompaña la solicitud activa">
             ◎ Seguir
           </button>

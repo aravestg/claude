@@ -22,6 +22,7 @@ export function ImportDialog() {
   const [analysis, setAnalysis] = useState<DrawioAnalysis | null>(null);
   const [overrides, setOverrides] = useState<Record<string, string>>({});
   const [done, setDone] = useState<DrawioImportResult | null>(null);
+  const [layout, setLayout] = useState<'flow' | 'original'>('flow');
 
   useEffect(() => {
     const d = ref.current;
@@ -73,11 +74,11 @@ export function ImportDialog() {
   const preview = useMemo(() => {
     if (!analysis) return null;
     try {
-      return { ok: true as const, result: buildFromAnalysis(analysis, { overrides, name: fileName.replace(/\.(drawio|xml|svg|dio)$/i, '').replace(/\.drawio$/i, '') || analysis.pageName }) };
+      return { ok: true as const, result: buildFromAnalysis(analysis, { overrides, layout, name: fileName.replace(/\.(drawio|xml|svg|dio)$/i, '').replace(/\.drawio$/i, '') || analysis.pageName }) };
     } catch (e) {
       return { ok: false as const, error: e instanceof Error ? e.message : String(e) };
     }
-  }, [analysis, overrides, fileName]);
+  }, [analysis, overrides, fileName, layout]);
 
   const defs = useMemo(() => listDefinitions(), []);
 
@@ -85,6 +86,11 @@ export function ImportDialog() {
     if (!preview?.ok) return;
     const r = preview.result;
     s.loadModel(r.model, IMPORTED, `Diagrama importado: ${r.model.components.length} componentes, ${r.model.connections.length} conexiones`, r.scenarios);
+    // en la disposición por flujo, las zonas del diagrama original no corresponden: se ocultan (reactivables en «Capas»)
+    const hidden = new Set(useStudio.getState().hiddenLayers);
+    if (layout === 'flow') hidden.add('groups');
+    else hidden.delete('groups');
+    useStudio.setState({ hiddenLayers: hidden });
     setDone(r);
     setPhase('done');
   };
@@ -165,6 +171,15 @@ export function ImportDialog() {
               </select>
             </label>
           )}
+          <fieldset className="import-layout">
+            <legend>Disposición en 3D</legend>
+            <label>
+              <input type="radio" name="layout" checked={layout === 'flow'} onChange={() => setLayout('flow')} data-testid="layout-flow" /> Ordenar por flujo de tráfico <small className="muted">(recomendado para simular)</small>
+            </label>
+            <label>
+              <input type="radio" name="layout" checked={layout === 'original'} onChange={() => setLayout('original')} data-testid="layout-original" /> Conservar la del diagrama
+            </label>
+          </fieldset>
           <div className="import-summary">
             <span className="chip chip--green">{analysis.nodes.length} figuras</span>
             <span className="chip chip--violet">{analysis.groups.length} grupos</span>

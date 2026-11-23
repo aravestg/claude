@@ -14,7 +14,7 @@ import type { SceneState, VisualStatus } from './derive';
 import { bounds, connectionCurve } from './geometry';
 import { CATEGORY_COLOR, PACKET_COLOR, STATUS_COLOR, STATUS_LABEL } from './palette';
 import { Shape } from './shapes';
-import { FaceLabel, hasFaceLabel, IllustratedBody, IllustratedConnection, IllustratedPacket, IllustratedZone, NamePill, StatusBadge } from './illustrated';
+import { FaceLabel, FadeContext, hasFaceLabel, IllustratedBody, IllustratedConnection, IllustratedPacket, IllustratedZone, NamePill, StatusBadge } from './illustrated';
 import type { CameraRequest, LayerKey, Selection, Tool, VisualStyle } from './types';
 
 export interface ArchitectureCanvasProps {
@@ -81,6 +81,8 @@ export function ArchitectureCanvas(props: ArchitectureCanvasProps) {
 function SceneContent(props: ArchitectureCanvasProps) {
   const { model, sceneState, hiddenLayers, theme } = props;
   const ill = props.visualStyle === 'illustrated';
+  // con una simulación en curso, se atenúa lo que la solicitud aún no tocó
+  const flowing = Object.keys(sceneState.components).length > 0 || !!sceneState.packet;
   const [dragPreview, setDragPreview] = useState<{ id: string; pos: Vec3 } | null>(null);
   const pos = (id: string): Vec3 => (dragPreview?.id === id ? dragPreview.pos : (model.layout.positions[id] ?? ORIGIN));
 
@@ -143,6 +145,7 @@ function SceneContent(props: ArchitectureCanvasProps) {
                 status={sceneState.connections[k.id]?.status}
                 selected={props.selection?.kind === 'connection' && props.selection.id === k.id}
                 theme={theme}
+                dim={flowing && !sceneState.connections[k.id] && sceneState.packet?.connectionId !== k.id}
                 onSelect={() => props.onSelect({ kind: 'connection', id: k.id })}
               />
             ) : (
@@ -177,6 +180,7 @@ function SceneContent(props: ArchitectureCanvasProps) {
             tool={props.tool}
             theme={theme}
             illustrated={ill}
+            dim={flowing && !sceneState.components[c.id] && sceneState.packet?.toId !== c.id && sceneState.packet?.fromId !== c.id && !(props.selection?.kind === 'component' && props.selection.id === c.id)}
             onSelect={() => (props.tool === 'connect' ? props.onConnectPick(c.id) : props.onSelect({ kind: 'component', id: c.id }))}
             onDoubleClick={() => props.onFocus(c.id)}
             onDrag={(p) => setDragPreview(p ? { id: c.id, pos: p } : null)}
@@ -212,6 +216,7 @@ function ComponentNode(p: {
   tool: Tool;
   theme: 'dark' | 'light';
   illustrated: boolean;
+  dim: boolean;
   onSelect: () => void;
   onDoubleClick: () => void;
   onDrag: (p: Vec3 | null) => void;
@@ -291,7 +296,9 @@ function ComponentNode(p: {
         userData={{ componentId: p.id }}
       >
         {p.illustrated ? (
+          <FadeContext.Provider value={p.dim}>
           <IllustratedBody shape={def?.shape ?? 'server'} status={p.status} selected={p.selected || p.connectSource || hover} theme={p.theme} />
+          </FadeContext.Provider>
         ) : (
           <Shape shape={def?.shape ?? 'server'} color={color} emissive={emissive} emissiveIntensity={lit ? 0.55 : 0} opacity={p.status === 'down' ? 0.55 : 1} />
         )}
@@ -303,9 +310,9 @@ function ComponentNode(p: {
       {p.illustrated && (
         <>
           {hasFaceLabel(def?.shape ?? 'server') ? (
-            <FaceLabel shape={def?.shape ?? 'server'} name={p.name} id={p.id} status={p.status} theme={p.theme} />
+            <FaceLabel shape={def?.shape ?? 'server'} name={p.name} id={p.id} status={p.status} theme={p.theme} dim={p.dim} />
           ) : (
-            <NamePill shape={def?.shape ?? 'server'} name={p.name} id={p.id} selected={p.selected} connectSource={p.connectSource} theme={p.theme} />
+            <NamePill shape={def?.shape ?? 'server'} name={p.name} id={p.id} selected={p.selected} connectSource={p.connectSource} theme={p.theme} dim={p.dim} />
           )}
           <StatusBadge shape={def?.shape ?? 'server'} status={p.status} badge={p.badge} />
         </>
@@ -535,7 +542,9 @@ function CameraRig(p: ArchitectureCanvasProps & { pos: (id: string) => Vec3 }) {
         x0 = Math.min(x0, v.x); x1 = Math.max(x1, v.x); y0 = Math.min(y0, v.y); y1 = Math.max(y1, v.y);
       }
       if (Number.isFinite(x0)) {
-        const top = 84, bottom = 46, side = 52;
+        // en lienzos angostos (móvil) los controles no flotan sobre la escena: márgenes mínimos
+        const compact = size.width < 600;
+        const top = compact ? 20 : 128, bottom = compact ? 20 : 46, side = compact ? 14 : 52;
         const ex = ((x1 - x0) * size.width) / 2;
         const ey = ((y1 - y0) * size.height) / 2;
         zoom = Math.max(6, Math.min((size.width - side * 2) / ex, (size.height - top - bottom) / ey, 80));

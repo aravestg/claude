@@ -8,6 +8,7 @@
  */
 import { compatibleProtocols, defaultPortFor, getDefinition, hasDefinition } from '../catalog';
 import type { Scenario } from '../contracts';
+import { flowLayout } from '../layout';
 import { parseModel } from '../schema';
 import type { ArchitectureModel, ComponentInstance, Connection, Group, GroupKind, Protocol, Vec3 } from '../types';
 import { SCHEMA_VERSION } from '../types';
@@ -331,7 +332,7 @@ const ENTRY_BEHAVIORS = new Set(['load_balancer', 'api_gateway', 'service']);
 
 export function buildFromAnalysis(
   a: DrawioAnalysis,
-  opts: { overrides?: Record<string, string | 'ignore'>; name?: string } = {}
+  opts: { overrides?: Record<string, string | 'ignore'>; name?: string; layout?: 'flow' | 'original' } = {}
 ): DrawioImportResult {
   const overrides = opts.overrides ?? {};
   const assumptions: string[] = [
@@ -659,6 +660,10 @@ export function buildFromAnalysis(
     layout: { positions },
     assumptions
   };
+  if ((opts.layout ?? 'flow') === 'flow') {
+    model.layout.positions = flowLayout(model);
+    model.assumptions.push('Disposición 3D ordenada por flujo de tráfico (presentación; no altera la simulación).');
+  }
   const parsed = parseModel(model);
   if (!parsed.ok) throw new DrawioImportError(`El modelo resultante no es válido: ${parsed.errors[0]}`);
   const report: ImportReport = {

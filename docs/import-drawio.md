@@ -22,6 +22,13 @@ Convierte un diagrama de draw.io (diagrams.net) en un modelo arquitectónico sim
 
 Las flechas dibujadas en sentido técnicamente imposible (p. ej. *BD → servicio*) se invierten y se informa. Las flechas sin origen/destino, los textos libres y las figuras decorativas se omiten y se informan.
 
+## Disposición en 3D
+
+- **Ordenar por flujo de tráfico** (predeterminado): capas de izquierda a derecha según el recorrido desde los clientes, ordenadas para reducir cruces. Las zonas del diagrama original se ocultan (reactivables en «Capas → Zonas»).
+- **Conservar la del diagrama**: respeta las posiciones de draw.io (escala robusta + separación mínima).
+- En cualquier momento: botón **⇢ Ordenar flujo** en la escena (deshacer con Ctrl+Z). Es sólo presentación: no altera la simulación.
+- Durante la simulación, lo que la solicitud aún no tocó se **atenúa** para que el camino activo se lea con claridad.
+
 ## Patrones de diagramas reales que se interpretan
 
 | Patrón | Interpretación |

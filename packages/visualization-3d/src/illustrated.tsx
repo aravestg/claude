@@ -5,7 +5,7 @@
  */
 import { Edges, Line, RoundedBox } from '@react-three/drei';
 import { Label } from './labels';
-import { useMemo } from 'react';
+import { createContext, useContext, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import * as THREE from 'three';
 import type { Connection, Group, ShapeKind, Vec3 } from '@asa/core-model';
@@ -13,6 +13,13 @@ import type { PacketState, VisualStatus } from './derive';
 import { Icon } from './icons';
 
 export const INK = { light: '#1d1b18', dark: '#e2e8f0' } as const;
+
+/** Atenuado de lo que la solicitud aún no tocó (resalta el flujo activo). */
+export const FadeContext = createContext(false);
+const useFade = () => {
+  const f = useContext(FadeContext);
+  return f ? { transparent: true, opacity: 0.22, depthWrite: false } : { transparent: false, opacity: 1 };
+};
 
 /** Colores de cara (tonos de la referencia). */
 const FACE: Partial<Record<ShapeKind, string>> = {
@@ -130,37 +137,43 @@ function roundedRect(w: number, d: number, r: number, y: number): THREE.Vector3[
 }
 
 function Inked({ children, fill, ink, w, position }: { children: ReactNode; fill: string; ink: string; w: number; position?: [number, number, number] }) {
+  const fade = useFade();
   return (
     <group position={position}>
       <mesh>
         {children}
-        <meshLambertMaterial color={fill} />
+        <meshLambertMaterial key={fade.transparent ? 'faded' : 'solid'} color={fill} {...fade} />
       </mesh>
-      <mesh scale={1 + w} raycast={() => null}>
-        {children}
-        <meshBasicMaterial color={ink} side={THREE.BackSide} />
-      </mesh>
+      {!fade.transparent && (
+        <mesh scale={1 + w} raycast={() => null}>
+          {children}
+          <meshBasicMaterial color={ink} side={THREE.BackSide} />
+        </mesh>
+      )}
     </group>
   );
 }
 
 /** Casco radial (sólo X/Z) para la silueta: evita la franja oscura sobre la cara superior. */
 function Silhouette({ geometry, children, ink, w }: { geometry?: THREE.BufferGeometry; children?: ReactNode; ink: string; w: number }) {
+  const fade = useFade();
+  if (fade.transparent) return null;
   return (
     <mesh geometry={geometry} scale={[1 + w, 1, 1 + w]} raycast={() => null}>
       {children}
-      <meshBasicMaterial color={ink} side={THREE.BackSide} />
+      <meshBasicMaterial color={ink} side={THREE.BackSide} {...fade} />
     </mesh>
   );
 }
 
 function Hex({ r, h, fill, ink, lw }: { r: number; h: number; fill: string; ink: string; lw: number }) {
   const g = hexGeometry(r, h);
+  const fade = useFade();
   return (
     <group>
       <mesh geometry={g}>
-        <meshLambertMaterial color={fill} />
-        <Edges threshold={35} lineWidth={lw > 0.09 ? 2.6 : 1.9} color={ink} />
+        <meshLambertMaterial key={fade.transparent ? 'faded' : 'solid'} color={fill} {...fade} />
+        <Edges key={fade.transparent ? 'faded' : 'solid'} threshold={35} lineWidth={lw > 0.09 ? 2.6 : 1.9} color={ink} transparent={fade.transparent} opacity={fade.opacity} />
       </mesh>
       <Silhouette geometry={g} ink={ink} w={lw * 0.55} />
     </group>
@@ -169,17 +182,20 @@ function Hex({ r, h, fill, ink, lw }: { r: number; h: number; fill: string; ink:
 
 function Slab({ w, d, h, fill, ink, lw }: { w: number; d: number; h: number; fill: string; ink: string; lw: number }) {
   const top = useMemo(() => roundedRect(w, d, 0.22, h + 0.003), [w, d, h]);
+  const fade = useFade();
   return (
     <group>
       <group position={[0, h / 2, 0]}>
         <RoundedBox args={[w, h, d]} radius={0.12} smoothness={3}>
-          <meshLambertMaterial color={fill} />
+          <meshLambertMaterial key={fade.transparent ? 'faded' : 'solid'} color={fill} {...fade} />
         </RoundedBox>
-        <RoundedBox args={[w + lw * 2, h, d + lw * 2]} radius={0.12} smoothness={3} raycast={() => null}>
-          <meshBasicMaterial color={ink} side={THREE.BackSide} />
-        </RoundedBox>
+        {!fade.transparent && (
+          <RoundedBox args={[w + lw * 2, h, d + lw * 2]} radius={0.12} smoothness={3} raycast={() => null}>
+            <meshBasicMaterial color={ink} side={THREE.BackSide} />
+          </RoundedBox>
+        )}
       </group>
-      <Line points={top} color={ink} lineWidth={lw > 0.09 ? 2.4 : 1.8} />
+      <Line key={fade.transparent ? 'faded' : 'solid'} points={top} color={ink} lineWidth={lw > 0.09 ? 2.4 : 1.8} transparent={fade.transparent} opacity={fade.opacity} />
     </group>
   );
 }
@@ -210,8 +226,8 @@ export function IllustratedBody({ shape, status, selected, theme }: { shape: Sha
         <group position={[0, 0.75, 0]}>
           <mesh>
             <cylinderGeometry args={[1.05, 1.05, 1.5, shape === 'nosql' ? 6 : 48]} />
-            <meshLambertMaterial color={fill} />
-            <Edges threshold={35} lineWidth={lw > 0.09 ? 2.6 : 1.9} color={ink} />
+            <FadedLambert color={fill} />
+            <FadedEdges ink={ink} lw={lw} />
           </mesh>
           <Silhouette ink={ink} w={lw * 0.5}>
             <cylinderGeometry args={[1.05, 1.05, 1.5, shape === 'nosql' ? 6 : 48]} />
@@ -257,15 +273,25 @@ export function IllustratedBody({ shape, status, selected, theme }: { shape: Sha
   }
 }
 
+function FadedEdges({ ink, lw }: { ink: string; lw: number }) {
+  const fade = useFade();
+  return <Edges key={fade.transparent ? 'faded' : 'solid'} threshold={35} lineWidth={lw > 0.09 ? 2.6 : 1.9} color={ink} transparent={fade.transparent} opacity={fade.opacity} />;
+}
+
+function FadedLambert({ color }: { color: string }) {
+  const fade = useFade();
+  return <meshLambertMaterial key={fade.transparent ? 'faded' : 'solid'} color={color} {...fade} />;
+}
+
 /** Ícono y nombre "impresos" sobre la ficha (alineados a pantalla, como en la referencia). */
-export function FaceLabel({ shape, name, id, status, theme }: { shape: ShapeKind; name: string; id: string; status: VisualStatus; theme: 'dark' | 'light' }) {
+export function FaceLabel({ shape, name, id, status, theme, dim }: { shape: ShapeKind; name: string; id: string; status: VisualStatus; theme: 'dark' | 'light'; dim?: boolean }) {
   // en la ficha: quita paréntesis descriptivos largos ("(RDS PostgreSQL)") pero conserva los cortos ("(a)")
   const short = name.length > 16 ? name.replace(/\s*\([^)]{5,}\)\s*/g, ' ').trim() : name;
   const clean = short.length > 22 ? `${short.slice(0, 21)}…` : short;
   const words = clean.length > 8 ? clean.split(/\s+/) : [clean];
   return (
     <Label position={[-0.32, topOf(shape) + 0.02, -0.32]} center zIndexRange={[12, 0]} style={{ pointerEvents: 'none' }}>
-      <div className={`ill-face ill-face--${theme} ill-face--${status}`} data-component-label={id} style={{ ['--halo' as string]: faceColor(shape, status) }}>
+      <div className={`ill-face ill-face--${theme} ill-face--${status}${dim ? ' is-dim' : ''}`} data-component-label={id} style={{ ['--halo' as string]: faceColor(shape, status) }}>
         <Icon shape={shape} size={22} />
         <span>{words.length > 2 ? `${words[0]}\n${words.slice(1).join(' ')}` : words.join('\n')}</span>
       </div>
@@ -273,10 +299,10 @@ export function FaceLabel({ shape, name, id, status, theme }: { shape: ShapeKind
   );
 }
 
-export function NamePill({ shape, name, id, selected, connectSource, theme }: { shape: ShapeKind; name: string; id: string; selected: boolean; connectSource: boolean; theme: 'dark' | 'light' }) {
+export function NamePill({ shape, name, id, selected, connectSource, theme, dim }: { shape: ShapeKind; name: string; id: string; selected: boolean; connectSource: boolean; theme: 'dark' | 'light'; dim?: boolean }) {
   return (
     <Label position={[0, 0, 2.15]} center zIndexRange={[12, 0]} style={{ pointerEvents: 'none' }}>
-      <div className={`ill-pill ill-pill--${theme}${selected ? ' ill-pill--selected' : ''}${connectSource ? ' ill-pill--source' : ''}`} data-component-label={id}>
+      <div className={`ill-pill ill-pill--${theme}${selected ? ' ill-pill--selected' : ''}${connectSource ? ' ill-pill--source' : ''}${dim ? ' is-dim' : ''}`} data-component-label={id}>
         <Icon shape={shape} size={14} />
         <span>{name}</span>
       </div>
@@ -308,7 +334,7 @@ export function flatEnds(a: Vec3, b: Vec3, lane: number): { start: THREE.Vector3
   return { start: s.clone().add(dir.clone().multiplyScalar(trim)).add(side), end: e.clone().sub(dir.clone().multiplyScalar(trim + 0.12)).add(side) };
 }
 
-export function IllustratedConnection(p: { conn: Connection; from: Vec3; to: Vec3; lane: number; status: VisualStatus | undefined; selected: boolean; theme: 'dark' | 'light'; onSelect: () => void }) {
+export function IllustratedConnection(p: { conn: Connection; from: Vec3; to: Vec3; lane: number; status: VisualStatus | undefined; selected: boolean; theme: 'dark' | 'light'; dim?: boolean; onSelect: () => void }) {
   const { start, end } = useMemo(() => flatEnds(p.from, p.to, p.lane), [p.from, p.to, p.lane]);
   const dir = end.clone().sub(start).normalize();
   const q = useMemo(() => new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir), [dir.x, dir.z]);
@@ -319,10 +345,10 @@ export function IllustratedConnection(p: { conn: Connection; from: Vec3; to: Vec
   const mid = start.clone().lerp(end, 0.5);
   return (
     <group>
-      <Line points={[start, end]} color={color} lineWidth={p.selected || failed ? 2.6 : p.status ? 2 : 1.5} dashed={isAsync || !p.conn.props.encrypted} dashSize={isAsync ? 0.12 : 0.32} gapSize={isAsync ? 0.16 : 0.22} transparent opacity={p.status || p.selected ? 1 : 0.75} />
+      <Line points={[start, end]} color={color} lineWidth={p.selected || failed ? 2.6 : p.status ? 2 : 1.5} dashed={isAsync || !p.conn.props.encrypted} dashSize={isAsync ? 0.12 : 0.32} gapSize={isAsync ? 0.16 : 0.22} transparent opacity={p.status || p.selected ? 1 : p.dim ? 0.18 : 0.75} />
       <mesh position={end} quaternion={q}>
         <coneGeometry args={[0.15, 0.42, 12]} />
-        <meshBasicMaterial color={color} />
+        <meshBasicMaterial color={color} transparent opacity={!p.status && !p.selected && p.dim ? 0.18 : 1} />
       </mesh>
       <mesh position={mid} rotation={[0, Math.atan2(dir.x, dir.z), 0]} visible={false} onClick={(e) => (e.stopPropagation(), p.onSelect())}>
         <boxGeometry args={[0.7, 0.6, len]} />
