@@ -23,9 +23,9 @@
   "devDependencies": {
     "@react-three/drei": "10.7.9",
     "@react-three/fiber": "9.8.2",
-    "@types/react": "19.1.17",
+    "@types/react": "19.3.0",
     "@types/three": "0.180.0",
-    "react": "19.1.10",
+    "react": "19.3.1",
     "three": "0.180.0",
     "@types/node": "22.20.5"
   }
