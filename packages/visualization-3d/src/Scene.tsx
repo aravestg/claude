@@ -559,7 +559,8 @@ function CameraRig(p: ArchitectureCanvasProps & { pos: (id: string) => Vec3 }) {
     }
     anim.current = zoom !== undefined ? { pos, target, zoom, t: 0 } : { pos, target, t: 0 };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [p.camera.nonce, ortho]);
+    // se re-encuadra también cuando cambia el tamaño del lienzo (ventana, móvil, paneles)
+  }, [p.camera.nonce, ortho, Math.round(size.width / 40), Math.round(size.height / 40)]);
 
   useFrame((_, dt) => {
     if (!controls) return;

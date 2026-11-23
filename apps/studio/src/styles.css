@@ -464,6 +464,7 @@ h4 { margin: 14px 0 6px; font-size: 11px; text-transform: uppercase; letter-spac
   .viewport { position: relative; inset: auto; display: flex; flex-direction: column; }
   .viewport .asa-stage { height: 380px !important; }
   .canvas-tools { position: static; justify-content: flex-start; max-width: none; padding: 8px 10px 10px; }
+  .canvas-tools .seg { flex-wrap: wrap; }
   .stale { bottom: auto; top: 10px; }
 }
 
