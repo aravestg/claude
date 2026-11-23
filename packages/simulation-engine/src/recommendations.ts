@@ -164,7 +164,7 @@ export function diagnose(model: ArchitectureModel, result: SimulationResult): Re
           componentIds: noCb,
           risk: 'Fallas en cascada: hilos y conexiones bloqueados esperando, latencia alta para el usuario.',
           severity: 'medium',
-          solution: 'Habilitar circuit breaker (umbral 3, reset 15 s) en los servicios que llaman a la base de datos.',
+          solution: `Habilitar circuit breaker (umbral 3, reset 15 s) en los servicios que llaman a ${name(at)}.`,
           justification: 'Fallar rápido protege los recursos del servicio y mejora la experiencia ante dependencias caídas.',
           benefits: ['Latencia de error acotada', 'Menor presión sobre la dependencia durante su recuperación'],
           tradeoffs: ['Durante el estado abierto se rechazan solicitudes aunque la dependencia ya se haya recuperado (hasta el reset)'],
