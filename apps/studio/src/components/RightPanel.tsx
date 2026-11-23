@@ -1,38 +1,215 @@
-import { useMemo } from 'react';
-import type { Recommendation } from '@asa/core-model';
+import { useEffect, useMemo, useRef } from 'react';
+import type { Recommendation, SimulationEvent } from '@asa/core-model';
+import { changesOf, EVENT_LABEL, milestonesOf, tagOf } from '../lesson';
 import { compatibleProtocols, effectiveProps, getDefinition, hasDefinition, nextId, validateModel } from '@asa/core-model';
 import { useStudio } from '../store';
 import type { RightTab } from '../store';
 import { PropEditor } from './PropEditor';
 
-const TABS: { id: RightTab; label: string }[] = [
-  { id: 'inspector', label: 'Inspector' },
-  { id: 'learn', label: 'Aprender' },
-  { id: 'recommendations', label: 'Diagnóstico' },
-  { id: 'validation', label: 'Validación' }
-];
+const TABS: Record<'simulate' | 'design', { id: RightTab; label: string }[]> = {
+  simulate: [
+    { id: 'step', label: 'Paso' },
+    { id: 'events', label: 'Eventos' },
+    { id: 'recommendations', label: 'Diagnóstico' }
+  ],
+  design: [
+    { id: 'inspector', label: 'Inspector' },
+    { id: 'learn', label: 'Aprender' },
+    { id: 'validation', label: 'Validación' }
+  ]
+};
 
 export function RightPanel() {
   const tab = useStudio((s) => s.rightTab);
+  const mode = useStudio((s) => s.mode);
   const set = useStudio((s) => s.set);
   const recs = useStudio((s) => s.recommendations.length);
   return (
-    <aside className="panel panel--right" aria-label="Panel contextual">
-      <div className="tabs" role="tablist">
-        {TABS.map((t) => (
-          <button key={t.id} role="tab" aria-selected={tab === t.id} className={tab === t.id ? 'on' : ''} onClick={() => set({ rightTab: t.id })}>
-            {t.label}
-            {t.id === 'recommendations' && recs > 0 && <span className="count">{recs}</span>}
-          </button>
-        ))}
-      </div>
-      <div className="panel__body" role="tabpanel">
-        {tab === 'inspector' && <Inspector />}
-        {tab === 'learn' && <Learn />}
-        {tab === 'recommendations' && <Recommendations />}
-        {tab === 'validation' && <Validation />}
-      </div>
+    <aside className="rail" aria-label="Panel contextual">
+      <section className="card rail__card">
+        <div className="tabs" role="tablist">
+          {TABS[mode].map((t) => (
+            <button key={t.id} role="tab" aria-selected={tab === t.id} className={tab === t.id ? 'on' : ''} onClick={() => set({ rightTab: t.id })}>
+              {t.label}
+              {t.id === 'recommendations' && recs > 0 && <span className="count">{recs}</span>}
+            </button>
+          ))}
+        </div>
+        <div className="rail__body" role="tabpanel">
+          {tab === 'step' && <StepPanel />}
+          {tab === 'events' && <EventsPanel />}
+          {tab === 'inspector' && <Inspector />}
+          {tab === 'learn' && <Learn />}
+          {tab === 'recommendations' && <Recommendations />}
+          {tab === 'validation' && <Validation />}
+        </div>
+      </section>
+      {mode === 'simulate' && <Journey />}
     </aside>
+  );
+}
+
+const ICON: Record<SimulationEvent['status'], string> = { info: '·', active: '→', success: '✔', warning: '!', error: '✖' };
+
+function StepPanel() {
+  const s = useStudio();
+  const events = s.result?.events ?? [];
+  const e = s.cursor >= 0 ? events[s.cursor] : undefined;
+  const next = events[s.cursor + 1];
+  const scenario = s.scenarios.find((x) => x.id === s.scenarioId);
+  const name = (id?: string) => (id ? (s.model.components.find((c) => c.id === id)?.name ?? id) : '');
+  const sel = s.selection?.kind === 'component' ? s.model.components.find((c) => c.id === s.selection!.id) : undefined;
+
+  return (
+    <div className="step" data-testid="event-inspector" aria-live="polite">
+      {e ? (
+        <>
+          <div className="step__head">
+            <span className="eyebrow">
+              Paso {s.cursor + 1} / {events.length}
+            </span>
+            <span className={`tag tag--${tagOf(e).tone}`}>{tagOf(e).label}</span>
+          </div>
+          <h2 className="step__title">{e.message}</h2>
+          <p>{e.explanation.basic}</p>
+          <div className={`callout callout--${e.status === 'error' ? 'rose' : 'green'}`}>
+            <span className="callout__icon" aria-hidden>
+              {e.status === 'error' ? '!' : '✦'}
+            </span>
+            <div>
+              <span className="eyebrow">{s.level === 'basic' ? 'Idea clave' : 'Detalle técnico'}</span>
+              <p>{e.explanation.advanced}</p>
+            </div>
+          </div>
+          <span className="eyebrow">Qué cambió</span>
+          <ul className="changes">
+            {changesOf(e, name).map((c, i) => (
+              <li key={i} className={`chg chg--${c.mark === '✕' ? 'bad' : c.mark === '+' ? 'add' : 'mod'}`}>
+                <i aria-hidden>{c.mark}</i>
+                {c.text}
+              </li>
+            ))}
+          </ul>
+          <details className="techdata">
+            <summary>Datos técnicos · {e.observableInRealSystem ? 'observable en sistema real' : 'sólo visible en la simulación'}</summary>
+            <dl className="kv">
+              <dt>Tiempo lógico</dt>
+              <dd>t = {e.t} ms</dd>
+              <dt>Traza</dt>
+              <dd>
+                <code>{e.traceId}</code>
+              </dd>
+              <dt>Procedencia</dt>
+              <dd>Simulación basada en reglas</dd>
+            </dl>
+            <pre>{JSON.stringify(e.data, null, 2)}</pre>
+          </details>
+        </>
+      ) : (
+        <>
+          <div className="step__head">
+            <span className="eyebrow">Paso 0 / {events.length || '—'}</span>
+            <span className="tag tag--state">Escenario</span>
+          </div>
+          <h2 className="step__title">{scenario?.name.replace(/^[A-Z] · /, '')}</h2>
+          <p>{scenario?.description}</p>
+          <div className="callout callout--violet">
+            <span className="callout__icon" aria-hidden>
+              ✦
+            </span>
+            <div>
+              <span className="eyebrow">Cómo funciona</span>
+              <p>Cada paso que verá es un evento estructurado emitido por el motor de simulación: la animación no inventa nada. Use ← → para avanzar o retroceder.</p>
+            </div>
+          </div>
+          {scenario?.setup?.length ? <p className="muted small">Este escenario requiere aplicar una configuración al modelo («Aplicar configuración»).</p> : null}
+        </>
+      )}
+      {sel && (
+        <div className="selcard">
+          <span className="eyebrow">Seleccionado</span>
+          <strong>{sel.name}</strong>
+          <button
+            className="link"
+            onClick={() => {
+              s.setMode('design');
+              s.select({ kind: 'component', id: sel.id });
+            }}
+          >
+            Editar en Diseñar →
+          </button>
+        </div>
+      )}
+      <div className="step__nav">
+        <button className="pop" onClick={() => s.step(-1)} disabled={!s.result || s.cursor <= 0} data-testid="step-back">
+          ← Atrás
+        </button>
+        {s.result ? (
+          <button className="pop pop--green pop--grow" onClick={() => s.step(1)} disabled={s.cursor >= events.length - 1 && s.progress >= 1} data-testid="step-forward">
+            <span>Siguiente: {next ? EVENT_LABEL[next.type] : 'fin'}</span> <span aria-hidden>→</span>
+          </button>
+        ) : (
+          <button className="pop pop--green pop--grow" onClick={() => void s.simulate()} data-testid="step-forward">
+            <span>Siguiente: simular</span> <span aria-hidden>→</span>
+          </button>
+        )}
+      </div>
+      <div className="keys">
+        <kbd>←</kbd>
+        <kbd>→</kbd> paso · <kbd>R</kbd> replay · <kbd>Espacio</kbd> pausa ·{' '}
+        <button className="link" onClick={() => s.set({ level: s.level === 'basic' ? 'advanced' : 'basic' })}>
+          nivel {s.level === 'basic' ? 'básico' : 'avanzado'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Journey() {
+  const s = useStudio();
+  const events = s.result?.events ?? [];
+  const ms = useMemo(() => milestonesOf(events, s.cursor), [events, s.cursor]);
+  return (
+    <section className="card journey" aria-label="Recorrido">
+      <span className="eyebrow">Recorrido de la solicitud</span>
+      {ms.length === 0 ? (
+        <p className="muted small">Al simular verá aquí los hitos que atraviesa la solicitud.</p>
+      ) : (
+        <ul>
+          {ms.map((m) => (
+            <li key={m.label} className={`ms ms--${m.state}`}>
+              <i aria-hidden>{m.state === 'done' ? '✓' : m.state === 'failed' ? '✕' : ''}</i>
+              {m.label}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function EventsPanel() {
+  const s = useStudio();
+  const events = s.result?.events ?? [];
+  const listRef = useRef<HTMLOListElement>(null);
+  useEffect(() => {
+    listRef.current?.querySelector<HTMLElement>('[aria-current="true"]')?.scrollIntoView({ block: 'nearest' });
+  }, [s.cursor]);
+  return (
+    <ol className="events" ref={listRef} aria-label="Eventos" data-testid="event-list">
+      {!events.length && <li className="muted">Sin eventos todavía. Pulse «Simular».</li>}
+      {events.map((e) => (
+        <li key={e.id} aria-current={e.seq === s.cursor} className={`ev st-${e.status}${e.seq > s.cursor ? ' ev--future' : ''}`}>
+          <button onClick={() => s.seek(e.seq)} title={e.message}>
+            <span className="ev__t">{e.t} ms</span>
+            <span className="ev__icon" aria-label={e.status}>
+              {ICON[e.status]}
+            </span>
+            <span className="ev__type">{e.type}</span>
+          </button>
+        </li>
+      ))}
+    </ol>
   );
 }
 

@@ -13,7 +13,7 @@ import type { SceneState, VisualStatus } from './derive';
 import { bounds, connectionCurve } from './geometry';
 import { CATEGORY_COLOR, PACKET_COLOR, STATUS_COLOR, STATUS_LABEL } from './palette';
 import { Shape } from './shapes';
-import { IllustratedBody, IllustratedConnection, IllustratedPacket, IllustratedZone, NamePill, pastelFor, TopFace } from './illustrated';
+import { FaceLabel, hasFaceLabel, IllustratedBody, IllustratedConnection, IllustratedPacket, IllustratedZone, NamePill, StatusBadge } from './illustrated';
 import type { CameraRequest, LayerKey, Selection, Tool, VisualStyle } from './types';
 
 export interface ArchitectureCanvasProps {
@@ -38,7 +38,7 @@ const ORIGIN: Vec3 = { x: 0, y: 0, z: 0 };
 
 export function ArchitectureCanvas(props: ArchitectureCanvasProps) {
   const ill = props.visualStyle === 'illustrated';
-  const bg = props.theme === 'dark' ? (ill ? '#101722' : '#0b1120') : ill ? '#f3ecdd' : '#eef2f7';
+  const bg = props.theme === 'dark' ? (ill ? '#16140f' : '#0b1120') : ill ? '#f6efe5' : '#eef2f7';
   return (
     <Canvas
       key={props.visualStyle}
@@ -46,7 +46,7 @@ export function ArchitectureCanvas(props: ArchitectureCanvasProps) {
       flat={ill}
       shadows={!ill && props.quality === 'high'}
       dpr={props.quality === 'high' ? [1, 2] : 1}
-      camera={ill ? { position: [30, 30, 30], zoom: 34, near: -500, far: 1000 } : { position: [-6, 16, 24], fov: 45, near: 0.1, far: 500 }}
+      camera={ill ? { position: [40, 38, 40], zoom: 34, near: -500, far: 1000 } : { position: [-6, 16, 24], fov: 45, near: 0.1, far: 500 }}
       gl={{ preserveDrawingBuffer: true, antialias: props.quality === 'high' }}
       onPointerMissed={() => props.onSelect(null)}
       data-testid="scene-canvas"
@@ -107,8 +107,8 @@ function SceneContent(props: ArchitectureCanvasProps) {
         args={[200, 200]}
         cellSize={1}
         sectionSize={5}
-        cellColor={theme === 'dark' ? '#1e293b' : ill ? '#e4d9c2' : '#cbd5e1'}
-        sectionColor={theme === 'dark' ? '#334155' : ill ? '#d3c4a3' : '#94a3b8'}
+        cellColor={theme === 'dark' ? (ill ? '#2a2620' : '#1e293b') : ill ? '#e8ded1' : '#cbd5e1'}
+        sectionColor={theme === 'dark' ? (ill ? '#3a342c' : '#334155') : ill ? '#e1d6c7' : '#94a3b8'}
         fadeDistance={90}
         infiniteGrid
       />
@@ -182,7 +182,7 @@ function SceneContent(props: ArchitectureCanvasProps) {
       {!hiddenLayers.has('communications') && sceneState.packet && (() => {
         const k = model.connections.find((x) => x.id === sceneState.packet!.connectionId);
         if (!k || !visible.has(k.sourceId) || !visible.has(k.targetId)) return null;
-        if (ill) return <IllustratedPacket conn={k} from={pos(k.sourceId)} to={pos(k.targetId)} lane={lanes.get(k.id) ?? 0} packet={sceneState.packet!} />;
+        if (ill) return <IllustratedPacket conn={k} from={pos(k.sourceId)} to={pos(k.targetId)} lane={lanes.get(k.id) ?? 0} packet={sceneState.packet!} theme={theme} />;
         return <PacketView conn={k} from={pos(k.sourceId)} to={pos(k.targetId)} lane={lanes.get(k.id) ?? 0} packet={sceneState.packet!} />;
       })()}
     </>
@@ -283,7 +283,7 @@ function ComponentNode(p: {
         userData={{ componentId: p.id }}
       >
         {p.illustrated ? (
-          <IllustratedBody shape={def?.shape ?? 'server'} base={pastelFor(def?.category ?? 'compute', def?.shape ?? 'server')} status={p.status} selected={p.selected || p.connectSource || hover} theme={p.theme} />
+          <IllustratedBody shape={def?.shape ?? 'server'} status={p.status} selected={p.selected || p.connectSource || hover} theme={p.theme} />
         ) : (
           <Shape shape={def?.shape ?? 'server'} color={color} emissive={emissive} emissiveIntensity={lit ? 0.55 : 0} opacity={p.status === 'down' ? 0.55 : 1} />
         )}
@@ -294,8 +294,12 @@ function ComponentNode(p: {
       </group>
       {p.illustrated && (
         <>
-          <TopFace shape={def?.shape ?? 'server'} name={p.name} theme={p.theme} />
-          <NamePill shape={def?.shape ?? 'server'} name={p.name} type={def?.label ?? p.type} status={p.status} badge={p.badge} selected={p.selected} connectSource={p.connectSource} theme={p.theme} id={p.id} />
+          {hasFaceLabel(def?.shape ?? 'server') ? (
+            <FaceLabel shape={def?.shape ?? 'server'} name={p.name} id={p.id} status={p.status} theme={p.theme} />
+          ) : (
+            <NamePill shape={def?.shape ?? 'server'} name={p.name} id={p.id} selected={p.selected} connectSource={p.connectSource} theme={p.theme} />
+          )}
+          <StatusBadge shape={def?.shape ?? 'server'} status={p.status} badge={p.badge} />
         </>
       )}
       {!p.illustrated && (
@@ -422,7 +426,7 @@ function GroupBox(p: { group: Group; model: ArchitectureModel; pos: (id: string)
   const h = 2.6 + d * 0.6;
   const color = p.group.kind === 'vpc' ? '#38bdf8' : p.group.kind === 'subnet' ? (p.group.props.public ? '#22c55e' : '#a78bfa') : '#f59e0b';
   const geo = useMemo(() => new THREE.BoxGeometry(w, h, depth), [w, h, depth]);
-  const illustratedZone = p.illustrated ? <IllustratedZone group={p.group} min={b.min} max={b.max} pad={2.5 + d * 0.9} theme={p.theme} /> : null;
+  const illustratedZone = p.illustrated ? <IllustratedZone group={p.group} min={b.min} max={b.max} pad={2.6 + d * 0.8} theme={p.theme} /> : null;
   const edges = useMemo(() => new THREE.EdgesGeometry(geo), [geo]);
   useEffect(
     () => () => {
@@ -465,7 +469,7 @@ function CameraRig(p: ArchitectureCanvasProps & { pos: (id: string) => Vec3 }) {
     let pos: THREE.Vector3;
     // ortográfica: la distancia no cambia el tamaño; el encuadre lo da el zoom
     const D = ortho ? 60 : s;
-    const fitZoom = Math.min(size.width / (s * 1.3), size.height / (s * 0.78));
+    const fitZoom = Math.min(size.width / (s * 1.12), size.height / (s * 0.72));
     let zoom: number | undefined = ortho ? fitZoom : undefined;
     switch (p.camera.view) {
       case 'top':
@@ -480,7 +484,7 @@ function CameraRig(p: ArchitectureCanvasProps & { pos: (id: string) => Vec3 }) {
         if (!id) return;
         const at = p.pos(id);
         target = new THREE.Vector3(at.x, 0.6, at.z);
-        pos = ortho ? target.clone().add(new THREE.Vector3(D, D * 0.82, D)) : new THREE.Vector3(at.x + 5, 6, at.z + 8);
+        pos = ortho ? target.clone().add(new THREE.Vector3(D, D * 0.95, D)) : new THREE.Vector3(at.x + 5, 6, at.z + 8);
         if (ortho) zoom = fitZoom * 2.4;
         break;
       }
@@ -488,17 +492,49 @@ function CameraRig(p: ArchitectureCanvasProps & { pos: (id: string) => Vec3 }) {
       case 'perspective':
       default:
         pos = ortho
-          ? c.clone().add(new THREE.Vector3(D * 0.55, D * 0.82, D))
+          ? c.clone().add(new THREE.Vector3(D, D * 0.95, D))
           : p.camera.view === 'iso'
             ? new THREE.Vector3(c.x + s * 0.75, s * 0.75, c.z + s * 0.75)
             : new THREE.Vector3(c.x - s * 0.2, s * 0.55, c.z + s * 0.85);
     }
-    if (ortho && zoom && p.camera.view !== 'focus' && p.camera.view !== 'top') {
-      // desplaza el encuadre hacia abajo para dejar espacio al encabezado de la lección
-      const groundUp = target.clone().sub(pos).setY(0).normalize();
-      const shift = groundUp.multiplyScalar(95 / zoom);
-      target.add(shift);
-      pos.add(shift);
+    if (ortho && p.camera.view !== 'focus') {
+      // Encuadre exacto: proyecta los componentes desde la orientación final y ajusta zoom y centro
+      // al área libre (descontando métricas arriba y leyenda/herramientas abajo).
+      const cam = (camera as THREE.OrthographicCamera).clone();
+      cam.position.copy(pos);
+      cam.up.set(0, 1, 0);
+      cam.lookAt(target);
+      cam.zoom = 1;
+      cam.updateMatrixWorld();
+      cam.updateProjectionMatrix();
+      const pts = p.model.components.flatMap((c) => {
+        const q = p.model.layout.positions[c.id] ?? ORIGIN;
+        return [
+          [q.x - 1.8, 0, q.z - 1.8],
+          [q.x + 1.8, 0, q.z + 1.8],
+          [q.x - 1.8, 2.6, q.z + 1.8],
+          [q.x + 1.8, 2.6, q.z - 1.8],
+          [q.x, 0, q.z + 2.6]
+        ] as const;
+      });
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+      for (const [x, y, z] of pts) {
+        const v = new THREE.Vector3(x, y, z).project(cam);
+        x0 = Math.min(x0, v.x); x1 = Math.max(x1, v.x); y0 = Math.min(y0, v.y); y1 = Math.max(y1, v.y);
+      }
+      if (Number.isFinite(x0)) {
+        const top = 84, bottom = 46, side = 24;
+        const ex = ((x1 - x0) * size.width) / 2;
+        const ey = ((y1 - y0) * size.height) / 2;
+        zoom = Math.max(6, Math.min((size.width - side * 2) / ex, (size.height - top - bottom) / ey, 80));
+        const right = new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 0);
+        const up = new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 1);
+        const cx = (((x0 + x1) / 2) * size.width) / 2;
+        const cy = (((y0 + y1) / 2) * size.height) / 2;
+        const delta = right.multiplyScalar(cx).add(up.multiplyScalar(cy + (top - bottom) / 2 / zoom));
+        target.add(delta);
+        pos.add(delta);
+      }
     }
     anim.current = zoom !== undefined ? { pos, target, zoom, t: 0 } : { pos, target, t: 0 };
     // eslint-disable-next-line react-hooks/exhaustive-deps

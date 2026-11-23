@@ -9,6 +9,8 @@ export default defineConfig({
   worker: { format: 'es' },
   build: {
     target: 'es2022',
+    // las fuentes se sirven como archivos (la CSP no permite data: para fuentes)
+    assetsInlineLimit: (file: string) => (/\.woff2?$/.test(file) ? false : undefined),
     sourcemap: true,
     chunkSizeWarningLimit: 1600,
     rollupOptions: {

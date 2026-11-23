@@ -1,10 +1,9 @@
 import { useEffect } from 'react';
-import { Catalog } from './components/Catalog';
-import { Console } from './components/Console';
 import { ProposalDialog } from './components/ProposalDialog';
 import { RightPanel } from './components/RightPanel';
-import { TopBar } from './components/TopBar';
-import { Viewport } from './components/Viewport';
+import { Sidebar } from './components/Sidebar';
+import { Stage } from './components/Stage';
+import { TopNav } from './components/TopNav';
 import { useStudio } from './store';
 
 export function App() {
@@ -68,12 +67,9 @@ export function App() {
 
   return (
     <div className="app" data-theme={theme}>
-      <TopBar />
-      <Catalog />
-      <main className="center">
-        <Viewport />
-        <Console />
-      </main>
+      <TopNav />
+      <Sidebar />
+      <Stage />
       <RightPanel />
       <ProposalDialog />
       {toast && (

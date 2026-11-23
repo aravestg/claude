@@ -13,7 +13,7 @@ const CATEGORY_LABEL: Record<string, string> = {
   data: 'Datos'
 };
 
-export function Catalog() {
+export function Catalog({ embedded = false }: { embedded?: boolean }) {
   const apply = useStudio((s) => s.apply);
   const model = useStudio((s) => s.model);
   const select = useStudio((s) => s.select);
@@ -39,12 +39,8 @@ export function Catalog() {
     }
   };
 
-  return (
-    <aside className="panel panel--left" aria-label="Catálogo de componentes">
-      <div className="panel__header">
-        <h2>Catálogo</h2>
-      </div>
-      <div className="panel__body">
+  const body = (
+      <div className={embedded ? 'catalog' : 'panel__body'}>
         <label className="field">
           <span>Buscar</span>
           <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="p.ej. Lambda, RDS, firewall" />
@@ -67,8 +63,13 @@ export function Catalog() {
             ))}
           </section>
         ))}
-        <p className="muted small">Los recursos se crean desde definiciones declarativas del catálogo (extensible con <code>registerDefinition</code>).</p>
+        <p className="muted small">Definiciones declarativas, extensibles con <code>registerDefinition</code>.</p>
       </div>
+  );
+  if (embedded) return body;
+  return (
+    <aside className="panel panel--left" aria-label="Catálogo de componentes">
+      {body}
     </aside>
   );
 }

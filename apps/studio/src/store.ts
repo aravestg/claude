@@ -12,7 +12,8 @@ import { loadCurrent, saveCurrent } from './persistence';
 import { rebaseIfSafe } from './rebase';
 import { runSimulation } from './sim/client';
 
-export type RightTab = 'inspector' | 'learn' | 'recommendations' | 'validation';
+export type RightTab = 'step' | 'events' | 'recommendations' | 'inspector' | 'learn' | 'validation';
+export type Mode = 'simulate' | 'design';
 export type RecDecision = 'accepted' | 'rejected' | 'postponed';
 
 export interface RunSummary {
@@ -45,6 +46,8 @@ interface StudioState {
   follow: boolean;
   camera: CameraRequest;
   rightTab: RightTab;
+  mode: Mode;
+  progress_: Record<string, SimulationResult['outcome']>;
   result: SimulationResult | null;
   resultRevision: number;
   runtime: string;
@@ -66,6 +69,8 @@ interface StudioState {
   loadModel: (model: ArchitectureModel, templateId: string, label: string) => void;
   importJson: (text: string) => void;
   setScenario: (id: string) => void;
+  openScenario: (templateId: string, scenarioId: string) => void;
+  setMode: (m: Mode) => void;
   prepareScenario: () => void;
   simulate: () => Promise<void>;
   play: () => void;
@@ -133,7 +138,9 @@ export const useStudio = create<StudioState>((set, get) => ({
   visualStyle: 'illustrated',
   follow: false,
   camera: { view: 'perspective', nonce: 0 },
-  rightTab: 'inspector',
+  rightTab: 'step',
+  mode: 'simulate',
+  progress_: {},
   result: null,
   resultRevision: -1,
   runtime: '',
@@ -220,6 +227,15 @@ export const useStudio = create<StudioState>((set, get) => ({
     get().loadModel(parsed.value, tpl, `Modelo importado: ${parsed.value.name}`);
   },
   setScenario: (id) => set({ scenarioId: id, playing: false, result: null, cursor: -1, progress: 0 }),
+  openScenario: (templateId, scenarioId) => {
+    if (templateId !== get().templateId) {
+      if (get().past.length && !confirm('¿Cambiar de plantilla? Los cambios quedan en el historial (Ctrl+Z).')) return;
+      get().loadTemplate(templateId);
+    }
+    get().setScenario(scenarioId);
+    set({ mode: 'simulate', rightTab: 'step' });
+  },
+  setMode: (mode) => set({ mode, rightTab: mode === 'design' ? 'inspector' : 'step', tool: 'select', connectFrom: null }),
   prepareScenario: () => {
     const s = get().scenarios.find((x) => x.id === get().scenarioId);
     if (!s?.setup?.length) return;
@@ -248,6 +264,7 @@ export const useStudio = create<StudioState>((set, get) => ({
         recommendations: out.recommendations,
         recDecisions: {},
         runs: [...get().runs, summarize(`#${n} rev.${model.revision}`, out.result)].slice(-6),
+        progress_: { ...get().progress_, [`${get().templateId}:${scenario.id}`]: out.result.outcome },
         cursor: 0,
         progress: 0,
         playing: true,
@@ -284,7 +301,7 @@ export const useStudio = create<StudioState>((set, get) => ({
     set({ cursor: r.cursor, progress: r.progress, playing: !r.finished });
   },
   setSpeed: (speed) => set({ speed }),
-  select: (selection) => set({ selection, ...(selection ? { rightTab: get().rightTab === 'validation' || get().rightTab === 'recommendations' ? 'inspector' : get().rightTab } : {}) }),
+  select: (selection) => set({ selection, ...(selection && get().mode === 'design' ? { rightTab: get().rightTab === 'validation' ? 'inspector' : get().rightTab } : {}) }),
   setTool: (tool) => set({ tool, connectFrom: null }),
   pickConnect: (id) => {
     const from = get().connectFrom;
