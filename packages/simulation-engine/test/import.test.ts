@@ -75,3 +75,17 @@ describe('diagnóstico según el tipo de dependencia', async () => {
     expect(ids.some((i) => i.startsWith('multiaz:'))).toBe(false);
   });
 });
+
+describe('escenario asíncrono generado', async () => {
+  const h = await importDrawio(fx('hybrid-patterns.drawio'), { inflateRaw });
+  it('la caída de un destino asíncrono no afecta al usuario y se recomienda cola durable', () => {
+    const s = h.scenarios.find((x) => x.id.includes('async-down'))!;
+    const r = simulate(h.model, s);
+    expect(r.outcome).toBe('success');
+    expect(diagnose(h.model, r).map((x) => x.id.split(':')[0])).toContain('async-loss');
+  });
+  it('la caída de la VPN recomienda redundancia del enlace', () => {
+    const s = h.scenarios.find((x) => x.id.includes('vpn-down'))!;
+    expect(diagnose(h.model, simulate(h.model, s)).map((x) => x.id.split(':')[0])).toContain('vpn');
+  });
+});

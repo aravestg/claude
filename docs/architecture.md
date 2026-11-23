@@ -68,7 +68,7 @@ Persistencia objetivo (Fase 2, PostgreSQL): `projects`, `model_versions (jsonb, 
 | `ModelOperation[]` | Editor / motor de reglas / IA → Model Engine | Validado con zod, aplicación atómica, incrementa `revision`. |
 | `ChangeProposal` | Motor de reglas / IA → Usuario → Model Engine | `pending → approved/rejected/postponed → applied`. `applyProposal` lanza error si no está aprobada. |
 | `Scenario` | Plantillas / usuario → Simulation Engine | Fallas = condiciones de ejecución (no modifican el modelo). `setup` = configuración propuesta al modelo. |
-| `SimulationEvent` | Simulation Engine → Visualización / consola / CLI / reportes | `id, simulationId, seq, t (lógico), duration, type, kind, status, sourceId, targetId, connectionId, traceId, causedBy, failure, data, explanation{basic,advanced}, observableInRealSystem, provenance`. |
+| `SimulationEvent` (1.1.0: eventos asíncronos) | Simulation Engine → Visualización / consola / CLI / reportes | `id, simulationId, seq, t (lógico), duration, type, kind, status, sourceId, targetId, connectionId, traceId, causedBy, failure, data, explanation{basic,advanced}, observableInRealSystem, provenance`. |
 | `SimulationResult` | Simulation Engine → UI / export | Incluye `requests[]` con causa raíz, `affectedComponentIds`, `provenance.disclaimer`. |
 | `asa-sim/1` | UI ↔ Web Worker | `{ id, model, scenario }` → `{ ok, result, recommendations }`. |
 
@@ -78,9 +78,10 @@ Reglas de versionado de contratos: ver `docs/devops/versioning.md#contratos`.
 
 - **Modelo de ejecución:** intérprete de árbol de llamadas con **reloj lógico** y cola de eventos de fondo (fallas programadas, failover). Determinista: sin reloj de pared ni aleatoriedad; desempates por ID. `simulationId = fnv1a(JSON canónico de la semántica)`.
 - **Comportamientos** (`behaviors/`): `client` (DNS → ruta BFS → SYN por tramo → TLS → solicitud), `firewall` (stateful: evalúa el SYN, primera regla por prioridad, `reject` = RST / `drop` = timeout), `load_balancer` (health checks, round robin, 503/504), `api_gateway` (autenticación 401, throttling 429, timeout de integración), `service` (procesamiento, pool, timeouts, reintentos con backoff exponencial, circuit breaker con half-open), `datastore` (disponibilidad, Multi-AZ + failover, Security Group con descarte silencioso, IAM 403).
+- **Comunicación asíncrona:** conexiones marcadas `async` se despachan sin esperar (`ASYNC_DISPATCHED`); la entrega se resuelve en segundo plano y su falla no afecta la respuesta (`ASYNC_DELIVERY_FAILED`).
 - **Fallas diferenciadas** (`FailureCategory`): `network`, `authorization`, `authentication`, `availability`, `application`, `capacity`, `dns`. Un descarte de Security Group se marca `observableInRealSystem: false` porque en producción sólo se vería un timeout.
 - **Diagnóstico** (`diagnose`): desde el evento causa raíz de cada solicitud fallida produce `Recommendation` (formato de la sección 12) con `ChangeProposal` pendiente.
-- **Supuestos documentados:** solicitudes de un escenario secuenciales; latencias estimadas; TLS termina en el balanceador; el timeout total del cliente no interrumpe trabajo en curso aguas abajo.
+- **Supuestos documentados:** solicitudes de un escenario secuenciales; un servicio llama a todas sus dependencias síncronas en cada solicitud (en el orden del diagrama); latencias estimadas; TLS termina en el balanceador; el timeout total del cliente no interrumpe trabajo en curso aguas abajo.
 
 ## 5. Motor de visualización 3D
 

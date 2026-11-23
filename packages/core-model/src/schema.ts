@@ -30,7 +30,7 @@ export const connectionSchema = z.object({
   protocol,
   port: z.number().int().min(1).max(65535),
   label: text(120).optional(),
-  props: z.object({ latencyMs: z.number().min(0).max(600000), encrypted: z.boolean() })
+  props: z.object({ latencyMs: z.number().min(0).max(600000), encrypted: z.boolean(), async: z.boolean().optional() })
 });
 export const groupSchema = z.object({
   id,
@@ -73,7 +73,7 @@ export const operationSchema = z.discriminatedUnion('op', [
       protocol: protocol.optional(),
       port: z.number().int().min(1).max(65535).optional(),
       label: text(120).optional(),
-      props: z.object({ latencyMs: z.number().min(0).max(600000).optional(), encrypted: z.boolean().optional() }).optional()
+      props: z.object({ latencyMs: z.number().min(0).max(600000).optional(), encrypted: z.boolean().optional(), async: z.boolean().optional() }).optional()
     })
   })
 ]);

@@ -135,3 +135,19 @@ test('importar rechaza archivos no válidos sin romper la app', async ({ page })
   await page.getByTestId('import-file').setInputFiles({ name: 'malo.drawio', mimeType: 'application/xml', buffer: Buffer.from('<!DOCTYPE x [<!ENTITY a "b">]><mxfile/>') });
   await expect(page.getByTestId('import-dialog')).toContainText('DTD');
 });
+
+test('asíncrono: la caída de un destino asíncrono no afecta al usuario y se diagnostica', async ({ page }) => {
+  await page.getByTestId('open-import').click();
+  await page.getByTestId('import-file').setInputFiles('../../packages/core-model/test/fixtures/hybrid-patterns.drawio');
+  await page.getByTestId('import-confirm').click();
+  await page.getByTestId('import-dialog').getByRole('button', { name: 'Cerrar', exact: true }).last().click();
+  await page.getByRole('button', { name: /\(asíncrono\)/ }).click();
+  await page.getByTestId('run-simulation').click();
+  const timeline = page.getByTestId('timeline');
+  await expect(page.getByTestId('sim-status')).toContainText('evento');
+  await timeline.fill((await timeline.getAttribute('max'))!);
+  await expect(page.getByTestId('sim-status')).toContainText('Éxito');
+  await expect(await events(page)).toContainText('ASYNC_DELIVERY_FAILED');
+  await page.getByRole('tab', { name: /Diagnóstico/ }).click();
+  await expect(page.getByTestId('recommendation').first()).toContainText('se pierden');
+});

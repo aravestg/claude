@@ -11,7 +11,7 @@ import type { Scenario } from '../contracts';
 import { parseModel } from '../schema';
 import type { ArchitectureModel, ComponentInstance, Connection, Group, GroupKind, Protocol, Vec3 } from '../types';
 import { SCHEMA_VERSION } from '../types';
-import { classify, groupKindOf, IGNORE_TYPE, isNonTrafficRelation, protocolFromLabel } from './mapping';
+import { classify, groupKindOf, IGNORE_TYPE, isAsyncRelation, isNonTrafficRelation, protocolFromLabel } from './mapping';
 import type { XmlNode } from './xml';
 import { base64ToBytes, decodeEntities, findAll, parseXml, utf8Decode, XmlError } from './xml';
 
@@ -394,10 +394,10 @@ export function buildFromAnalysis(
   // conexiones
   const connections: Connection[] = [];
   const reportConns: ImportReport['connections'] = [];
-  const addConn = (sourceId: string, targetId: string, protocol: Protocol, port: number, note?: string) => {
+  const addConn = (sourceId: string, targetId: string, protocol: Protocol, port: number, note?: string, isAsync = false) => {
     if (connections.some((k) => k.sourceId === sourceId && k.targetId === targetId && k.protocol === protocol)) return;
     const edgy = ['client', 'transit'].includes(behavior(sourceId)) || behavior(targetId) === 'transit';
-    const k: Connection = { id: `k-${connections.length + 1}`, sourceId, targetId, protocol, port, props: { latencyMs: protocol === 'DNS' ? 10 : edgy ? 20 : 2, encrypted: protocol === 'HTTPS' } };
+    const k: Connection = { id: `k-${connections.length + 1}`, sourceId, targetId, protocol, port, props: { latencyMs: protocol === 'DNS' ? 10 : edgy ? 20 : 2, encrypted: protocol === 'HTTPS', ...(isAsync ? { async: true } : {}) } };
     connections.push(k);
     reportConns.push({ id: k.id, from: comp(sourceId).name, to: comp(targetId).name, protocol, port, ...(note ? { note } : {}) });
   };
@@ -485,7 +485,9 @@ export function buildFromAnalysis(
     else if (hint.protocol) notes.push(`el texto indica ${hint.protocol}, se usó ${protocol}`);
     const l4Compatible = hint.protocol === protocol || !hint.protocol || (hint.protocol === 'TCP' && protocol !== 'DNS');
     const port = hint.port && l4Compatible ? hint.port : (defaultPortFor(comp(t).type, protocol) ?? 443);
-    addConn(s, t, protocol, port, notes.length ? notes.join('; ') : undefined);
+    const asyncFlow = protocol !== 'DNS' && protocol !== 'JDBC' && isAsyncRelation(e.label, comp(t).type);
+    if (asyncFlow) notes.push('asíncrona: el llamador no espera respuesta');
+    addConn(s, t, protocol, port, notes.length ? notes.join('; ') : undefined, asyncFlow);
   }
 
   // endpoints privados sin destino: se enlazan al servicio que nombran (p. ej. "Endpoint Secrets" → Secrets Manager)
@@ -679,7 +681,7 @@ export function scenariosFor(model: ArchitectureModel): Scenario[] {
   const req = { method: 'GET' as const, path: '/', payload: { requestId: 'REQ-0001', source: 'sintético' }, auth: 'valid' as const };
   const base = { entryComponentId: client.id, request: req, intervalMs: 0, requestCount: 1, faults: [] };
   const out: Scenario[] = [{ ...base, id: 'imp-A-main', name: 'A · Flujo principal', description: 'Una solicitud recorre la arquitectura importada tal como fue dibujada.', kind: 'success' }];
-  const letters = 'BCDEFGHI';
+  const letters = 'BCDEFGHIJ';
   const push = (s: Omit<Scenario, 'id' | 'name'> & { title: string; key: string }) => {
     const l = letters[out.length - 1] ?? 'X';
     const { title, key, ...rest } = s;
@@ -709,6 +711,20 @@ export function scenariosFor(model: ArchitectureModel): Scenario[] {
   if (vpn) push({ ...base, key: 'vpn-down', title: `Caída de ${vpn.name}`, description: 'El enlace privado entre la red corporativa y la nube deja de responder.', kind: 'failure', faults: [{ kind: 'COMPONENT_DOWN', componentId: vpn.id }] });
   const ext = model.components.find((c) => c.type === 'integration.saas_api' && called(c));
   if (ext) push({ ...base, key: 'saas-down', title: `Caída de ${ext.name}`, description: 'Un sistema externo deja de responder: ¿la aplicación lo tolera o el error se propaga al usuario?', kind: 'failure', requestCount: 2, intervalMs: 20000, faults: [{ kind: 'COMPONENT_DOWN', componentId: ext.id }] });
+  const asyncConn = model.connections.find((k) => k.props.async);
+  if (asyncConn) {
+    let target = asyncConn.targetId;
+    for (let i = 0; i < 5; i++) {
+      const tc = model.components.find((c) => c.id === target);
+      if (!tc || b(tc) !== 'transit') break;
+      const nx = model.connections.find((k) => k.sourceId === target && k.protocol !== 'DNS');
+      if (!nx) break;
+      target = nx.targetId;
+    }
+    const tc = model.components.find((c) => c.id === target);
+    if (tc && b(tc) !== 'transit')
+      push({ ...base, key: 'async-down', title: `Caída de ${tc.name} (asíncrono)`, description: 'Un destino asíncrono cae: el usuario no debería notarlo, pero los mensajes se pierden si no hay cola durable.', kind: 'resilience', faults: [{ kind: 'COMPONENT_DOWN', componentId: tc.id }] });
+  }
   const dns = model.components.find((c) => b(c) === 'dns');
   if (dns) push({ ...base, key: 'dns-down', title: 'Falla de DNS', description: 'El DNS no responde: el cliente nunca abre la conexión.', kind: 'failure', faults: [{ kind: 'COMPONENT_DOWN', componentId: dns.id }] });
   return out;

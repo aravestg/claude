@@ -350,6 +350,10 @@ function ConnectionInspector({ id }: { id: string }) {
         <input type="checkbox" checked={k.props.encrypted} onChange={(e) => upd({ props: { encrypted: e.target.checked } })} />
         <span>Cifrado (TLS)</span>
       </label>
+      <label className="field field--check">
+        <input type="checkbox" checked={!!k.props.async} onChange={(e) => upd({ props: { async: e.target.checked } })} data-testid="conn-async" />
+        <span>Asíncrona (el origen no espera respuesta: cola, webhook, email, logs)</span>
+      </label>
       <h4>Comunicaciones simuladas ({events.length})</h4>
       <ul className="list list--events">
         {events.map((e) => (

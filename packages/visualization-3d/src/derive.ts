@@ -14,7 +14,7 @@ export interface PacketState {
   toId: string;
   progress: number;
   status: EventStatus;
-  variant: 'dns' | 'syn' | 'request' | 'response' | 'query' | 'rst' | 'error';
+  variant: 'dns' | 'syn' | 'request' | 'response' | 'query' | 'rst' | 'error' | 'async';
   label: string;
   /** Texto del mensaje en vuelo, tomado de los datos del evento (no inventado). */
   caption: string;
@@ -55,6 +55,8 @@ function variantOf(e: SimulationEvent): PacketState['variant'] {
       return e.status === 'error' ? 'error' : 'response';
     case 'ERROR_RETURNED':
       return 'error';
+    case 'ASYNC_DISPATCHED':
+      return 'async';
     default:
       return 'request';
   }
@@ -81,6 +83,8 @@ export function captionFor(e: SimulationEvent): string {
       return d.httpStatus !== undefined ? `HTTP ${String(d.httpStatus)}` : 'respuesta';
     case 'REQUEST_SENT':
       return `${String(d.method ?? '')} ${String(d.path ?? '')}`.trim() || 'solicitud';
+    case 'ASYNC_DISPATCHED':
+      return `⇢ asíncrono · ${String(d.protocol ?? '')}`;
     default:
       return e.type;
   }
@@ -111,6 +115,10 @@ function badgeFor(e: SimulationEvent): string | undefined {
       return '⇄ Failover';
     case 'POOL_EXHAUSTED':
       return '▣ Pool agotado';
+    case 'ASYNC_DELIVERY_FAILED':
+      return '✉ Entrega perdida';
+    case 'ASYNC_DELIVERED':
+      return '✉ Recibido';
     case 'ERROR_RETURNED':
       return e.data.httpStatus ? `✖ ${String(e.data.httpStatus)}` : '✖ Error';
     default:

@@ -354,7 +354,7 @@ function ConnectionView(p: {
     const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), tangent);
     return { at, q };
   }, [curve]);
-  const idle = p.theme === 'dark' ? '#475569' : '#94a3b8';
+  const idle = p.conn.props.async ? '#8a6fd6' : p.theme === 'dark' ? '#475569' : '#94a3b8';
   const color = p.selected ? '#f8fafc' : p.status ? STATUS_COLOR[p.status] : idle;
   const mid = curve.getPoint(0.5);
   return (

@@ -8,7 +8,7 @@
  */
 import type { ComponentInstance, Connection, Protocol, Vec3 } from './types';
 
-export const CONTRACT_VERSION = '1.0.0' as const;
+export const CONTRACT_VERSION = '1.1.0' as const;
 
 // ---------------- Escenarios ----------------
 
@@ -79,6 +79,9 @@ export const EVENT_TYPES = [
   'CIRCUIT_BREAKER_REJECTED',
   'CIRCUIT_BREAKER_CLOSED',
   'ERROR_RETURNED',
+  'ASYNC_DISPATCHED',
+  'ASYNC_DELIVERED',
+  'ASYNC_DELIVERY_FAILED',
   'RESPONSE_SENT',
   'RESPONSE_RECEIVED',
   'REQUEST_COMPLETED',

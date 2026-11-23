@@ -181,6 +181,26 @@ export function diagnose(model: ArchitectureModel, result: SimulationResult): Re
       }
     }
 
+    if (root.type === 'SERVICE_UNAVAILABLE' && behavior(at) === 'transit' && model.components.find((c) => c.id === at)?.type === 'network.vpn') {
+      add({
+        id: `vpn:${at}`,
+        problem: `${name(at)} es el único camino entre la red corporativa y la nube`,
+        evidence: `Evento SERVICE_UNAVAILABLE (t=${root.t} ms): ninguna solicitud alcanza la aplicación.`,
+        evidenceKind: 'simulation',
+        componentIds: [at],
+        risk: 'Indisponibilidad total para los usuarios internos aunque la aplicación esté sana.',
+        severity: 'high',
+        solution: 'Agregar un segundo enlace independiente (dos túneles en distintos dispositivos/zonas, o Direct Connect con VPN de respaldo) con enrutamiento dinámico (BGP).',
+        justification: 'La conectividad híbrida suele ser el punto único de falla más olvidado: la redundancia debe cubrir el enlace, no sólo los servidores.',
+        benefits: ['Conmutación automática ante caída del enlace', 'Mantenimientos sin corte'],
+        tradeoffs: ['Costo del enlace adicional', 'Configuración de rutas más compleja'],
+        complexity: 'medium',
+        costImpact: 'medium',
+        priority: 1,
+        alternatives: ['Acceso por Internet con WAF + identidad (zero trust) como respaldo']
+      });
+    }
+
     if (root.type === 'SERVICE_UNAVAILABLE' && behavior(at) === 'dns') {
       add({
         id: `dns:${at}`,
@@ -266,6 +286,27 @@ export function diagnose(model: ArchitectureModel, result: SimulationResult): Re
         alternatives: ['Colas para suavizar picos']
       });
     }
+  }
+  // entregas asíncronas perdidas (no fallan la solicitud, pero se pierden mensajes)
+  for (const e of result.events.filter((x) => x.type === 'ASYNC_DELIVERY_FAILED' && x.sourceId)) {
+    const at = e.sourceId!;
+    add({
+      id: `async-loss:${at}`,
+      problem: `Mensajes asíncronos hacia ${name(at)} se pierden cuando no está disponible`,
+      evidence: `Evento ASYNC_DELIVERY_FAILED (t=${e.t} ms): la solicitud del usuario terminó bien, pero el mensaje no se entregó.`,
+      evidenceKind: 'simulation',
+      componentIds: [at, String(e.data['from'] ?? '')].filter(Boolean),
+      risk: 'Pérdida silenciosa de notificaciones, correos o registros.',
+      severity: 'medium',
+      solution: `Enviar a ${name(at)} a través de una cola durable con reintentos y cola de mensajes fallidos (DLQ), y monitorear su profundidad.`,
+      justification: 'Desacoplar en el tiempo sólo es confiable si el mensaje se persiste hasta su entrega.',
+      benefits: ['Sin pérdida de mensajes', 'Reintentos automáticos', 'Visibilidad de fallas (DLQ)'],
+      tradeoffs: ['Entrega eventual (no inmediata)', 'Requiere idempotencia en el consumidor'],
+      complexity: 'medium',
+      costImpact: 'low',
+      priority: 2,
+      alternatives: ['Patrón outbox en la base de datos', 'Reintentos con backoff en la plataforma de integración']
+    });
   }
   return [...recs.values()].sort((a, b) => a.priority - b.priority || a.id.localeCompare(b.id));
 }

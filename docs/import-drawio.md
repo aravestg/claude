@@ -22,6 +22,23 @@ Convierte un diagrama de draw.io (diagrams.net) en un modelo arquitectónico sim
 
 Las flechas dibujadas en sentido técnicamente imposible (p. ej. *BD → servicio*) se invierten y se informa. Las flechas sin origen/destino, los textos libres y las figuras decorativas se omiten y se informan.
 
+## Patrones de diagramas reales que se interpretan
+
+| Patrón | Interpretación |
+|---|---|
+| Conectores fuera de página (círculos Ⓐ, Ⓑ…) | Se unen las flechas que entran y salen del conector con la misma letra |
+| Flechas entre grupos (p. ej. *Red corporativa → Subred frontend*) | Componente representativo: salida por la VPN/tránsito del cliente, entrada por el balanceador, o el que nombra el texto |
+| Notas, tablas de reglas, leyendas, *route tables* | Se omiten e informan |
+| Flechas «cifra», «adjunta cert», «Pull image (deploy)» | Relaciones de configuración o ciclo de vida: no son tráfico, se omiten |
+| «TCP 5432 (PostgreSQL/TLS)» / «TCP 3000» | JDBC 5432 / HTTP 3000 (se conserva el puerto L4) |
+| Numeración ①②③ o «1.», «2.» en las flechas | Orden de las llamadas del servicio |
+| Endpoints / PrivateLink sin flecha de salida | Se enlazan al servicio o grupo que nombran (supuesto) |
+| «email», «webhook», «cola», «evento», «logs» o destino email/monitoreo | **Conexión asíncrona** |
+
+## Comunicación asíncrona
+
+Una conexión asíncrona (editable en el inspector de conexión) hace que el emisor **no espere** respuesta: el simulador emite `ASYNC_DISPATCHED` y resuelve la entrega en segundo plano (`ASYNC_DELIVERED` o `ASYNC_DELIVERY_FAILED`). Si el destino cae, la solicitud del usuario no falla, pero la pérdida queda registrada y el diagnóstico recomienda una cola durable con DLQ. Contrato de eventos 1.1.0 (cambio MINOR).
+
 ## Completado mínimo para poder simular (queda como supuesto)
 
 - Si no hay usuarios, se agrega **Usuario (supuesto)** que llama al punto de entrada.

@@ -68,6 +68,8 @@ export interface ConnectionProps {
   /** Latencia lógica estimada del tramo (ms). Es una estimación, no una medición. */
   latencyMs: number;
   encrypted: boolean;
+  /** Asíncrona: el llamador despacha el mensaje y no espera respuesta (cola, webhook, email, logs). */
+  async?: boolean;
 }
 
 export interface Connection {

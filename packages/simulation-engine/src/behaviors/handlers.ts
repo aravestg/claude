@@ -126,8 +126,70 @@ function handleTransit(run: Run, id: string, req: SimRequest, trace: Trace): Out
     return { kind: 'response', status: 502, error: `${run.name(id)} sin destino`, failure: 'network' };
   }
   const k = next[0]!;
+  if (k.props.async) {
+    dispatchAsync(run, id, k, req, trace);
+    return { kind: 'response', status: 202, body: { accepted: true } };
+  }
   const out = forwardHttp(run, k, req, trace);
   return out.kind === 'response' ? out : { kind: 'response', status: 504, error: out.reason, failure: out.failure };
+}
+
+/**
+ * Despacho asíncrono: el emisor no espera. La entrega se resuelve en segundo plano en el instante
+ * lógico en que llegaría el mensaje; si el destino no está disponible se registra la pérdida
+ * (advertencia) sin afectar la respuesta al usuario.
+ */
+export function dispatchAsync(run: Run, from: string, conn: Connection, req: SimRequest, trace: Trace): void {
+  const to = conn.targetId;
+  const latency = run.latency(conn);
+  run.emit(trace, {
+    type: 'ASYNC_DISPATCHED',
+    status: 'info',
+    sourceId: from,
+    targetId: to,
+    connectionId: conn.id,
+    duration: latency,
+    advance: false,
+    data: { protocol: conn.protocol, port: conn.port, async: true, path: req.path },
+    message: `${run.name(from)} ⇢ ${run.name(to)}: mensaje asíncrono (no espera respuesta)`,
+    basic: `${run.name(from)} deja un mensaje para ${run.name(to)} y sigue trabajando.`,
+    advanced: 'Comunicación asíncrona: la latencia y la disponibilidad del destino no bloquean la respuesta. El costo es la posible pérdida o el retraso del mensaje.'
+  });
+  // destino final: atraviesa tránsitos (endpoint/NAT) siguiendo su primera salida
+  let final = to;
+  const seen = new Set([from]);
+  let hops = latency;
+  while (run.behavior(final) === 'transit' && !seen.has(final)) {
+    seen.add(final);
+    const nx = run.outgoing(final).find((k) => k.protocol !== 'DNS');
+    if (!nx) break;
+    hops += run.latency(nx);
+    final = nx.targetId;
+  }
+  const at = run.clock + hops;
+  run.schedule(at, () => {
+    const ok = [to, final].every((id) => run.isAvailable(id)) && run.behavior(final) !== 'transit';
+    run.emit(trace, ok
+      ? {
+          type: 'ASYNC_DELIVERED',
+          status: 'success',
+          sourceId: final,
+          data: { from, async: true },
+          message: `${run.name(final)} recibió el mensaje asíncrono de ${run.name(from)}`,
+          basic: 'El mensaje llegó a su destino.',
+          advanced: 'Entrega completada en segundo plano, después de que el usuario ya recibió su respuesta.'
+        }
+      : {
+          type: 'ASYNC_DELIVERY_FAILED',
+          status: 'warning',
+          sourceId: final,
+          failure: 'availability',
+          data: { from, async: true },
+          message: `Entrega asíncrona fallida: ${run.name(final)} no disponible (mensaje de ${run.name(from)})`,
+          basic: 'El mensaje no pudo entregarse, pero el usuario no se vio afectado.',
+          advanced: 'Sin cola durable ni reintentos, este mensaje se pierde. Con una cola y DLQ se reintentaría más tarde.'
+        });
+  });
 }
 
 /** Almacén o API gestionada alcanzada por HTTP (p. ej. a través de un endpoint privado). */
@@ -313,6 +375,10 @@ function handleService(run: Run, id: string, req: SimRequest, trace: Trace): Out
   }
   const rows: Record<string, unknown> = {};
   for (const dep of run.outgoing(id)) {
+    if (dep.props.async) {
+      dispatchAsync(run, id, dep, req, trace);
+      continue;
+    }
     const r = callDependency(run, id, dep, req, trace);
     if (!r.ok) {
       const status = r.failure === 'authorization' ? 500 : 503;

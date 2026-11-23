@@ -159,3 +159,13 @@ describe('patrones de diagramas reales (híbrido)', async () => {
     expect(r.scenarios.map((s) => s.name)).toEqual(expect.arrayContaining([expect.stringMatching(/Caída de RDS/), expect.stringMatching(/Caída de Direct Connect/), expect.stringMatching(/Caída de (Proveedor|Sistema)/)]));
   });
 });
+
+describe('comunicación asíncrona en la importación', async () => {
+  const r = await importDrawio(fixture('hybrid-patterns.drawio'), { inflateRaw });
+  it('marca como asíncronas las flechas de email/webhook/logs', () => {
+    const k = r.model.connections.find((c) => r.model.components.find((x) => x.id === c.targetId)?.type === 'integration.email')!;
+    expect(k.props.async).toBe(true);
+    const db = r.model.connections.find((c) => c.protocol === 'JDBC')!;
+    expect(db.props.async).toBeUndefined();
+  });
+});

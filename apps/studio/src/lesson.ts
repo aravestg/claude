@@ -16,6 +16,8 @@ const CHAPTER_OF: Partial<Record<EventType, string>> = {
   DATABASE_QUERY_STARTED: 'Datos',
   PACKET_DROPPED: 'Descarte',
   RETRY_STARTED: 'Reintento',
+  ASYNC_DISPATCHED: 'Asíncrono',
+  ASYNC_DELIVERY_FAILED: 'Mensaje perdido',
   CIRCUIT_BREAKER_OPENED: 'Breaker',
   CIRCUIT_BREAKER_REJECTED: 'Fail-fast',
   FAILOVER_COMPLETED: 'Failover',
@@ -117,6 +119,7 @@ export function changesOf(e: SimulationEvent, name: (id?: string) => string): { 
   if (e.sourceId) out.push({ mark: '~', text: e.targetId ? `${name(e.sourceId)} → ${name(e.targetId)}` : name(e.sourceId) });
   if (d.protocol) out.push({ mark: '+', text: `Protocolo / puerto: ${d.protocol}${d.port ? `:${d.port}` : ''}` });
   if (d.method && d.path) out.push({ mark: '+', text: `${d.method} ${d.path}` });
+  if (d['async']) out.push({ mark: '~', text: 'Asíncrono: el emisor no espera respuesta' });
   if (d.httpStatus !== undefined) out.push({ mark: Number(d.httpStatus) >= 400 ? '✕' : '+', text: `HTTP ${String(d.httpStatus)}` });
   if (d.ruleId) out.push({ mark: d['action'] === 'deny' ? '✕' : '+', text: `Regla: ${d.ruleId} (${String(d['action'] ?? '')})` });
   if (d['timeoutMs'] !== undefined) out.push({ mark: '✕', text: `Timeout: ${String(d['timeoutMs'])} ms` });
@@ -164,6 +167,9 @@ export const EVENT_LABEL: Record<EventType, string> = {
   CIRCUIT_BREAKER_REJECTED: 'Fallar rápido',
   CIRCUIT_BREAKER_CLOSED: 'Cerrar breaker',
   ERROR_RETURNED: 'Devolver error',
+  ASYNC_DISPATCHED: 'Mensaje asíncrono',
+  ASYNC_DELIVERED: 'Entrega asíncrona',
+  ASYNC_DELIVERY_FAILED: 'Entrega fallida',
   RESPONSE_SENT: 'Responder',
   RESPONSE_RECEIVED: 'Respuesta recibida',
   REQUEST_COMPLETED: 'Fin de solicitud',

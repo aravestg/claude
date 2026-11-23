@@ -313,12 +313,13 @@ export function IllustratedConnection(p: { conn: Connection; from: Vec3; to: Vec
   const dir = end.clone().sub(start).normalize();
   const q = useMemo(() => new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir), [dir.x, dir.z]);
   const failed = p.status === 'error';
-  const color = p.selected ? '#2f6fdf' : failed ? '#c0392b' : INK[p.theme];
+  const isAsync = !!p.conn.props.async;
+  const color = p.selected ? '#2f6fdf' : failed ? '#c0392b' : isAsync ? '#7c63d0' : INK[p.theme];
   const len = start.distanceTo(end);
   const mid = start.clone().lerp(end, 0.5);
   return (
     <group>
-      <Line points={[start, end]} color={color} lineWidth={p.selected || failed ? 2.6 : p.status ? 2 : 1.5} dashed={!p.conn.props.encrypted} dashSize={0.32} gapSize={0.22} transparent opacity={p.status || p.selected ? 1 : 0.75} />
+      <Line points={[start, end]} color={color} lineWidth={p.selected || failed ? 2.6 : p.status ? 2 : 1.5} dashed={isAsync || !p.conn.props.encrypted} dashSize={isAsync ? 0.12 : 0.32} gapSize={isAsync ? 0.16 : 0.22} transparent opacity={p.status || p.selected ? 1 : 0.75} />
       <mesh position={end} quaternion={q}>
         <coneGeometry args={[0.15, 0.42, 12]} />
         <meshBasicMaterial color={color} />
@@ -331,6 +332,7 @@ export function IllustratedConnection(p: { conn: Connection; from: Vec3; to: Vec
           <div className="ill-note">
             {p.conn.protocol}:{p.conn.port}
             {p.conn.props.encrypted ? ' · TLS' : ' · sin cifrado'}
+            {isAsync ? ' · asíncrona' : ''}
           </div>
         </Label>
       )}
@@ -345,7 +347,8 @@ const DOT: Record<PacketState['variant'], string> = {
   query: '#e9955e',
   response: '#7fc278',
   rst: '#c0392b',
-  error: '#c0392b'
+  error: '#c0392b',
+  async: '#8a6fd6'
 };
 
 export function IllustratedPacket({ conn, from, to, lane, packet, theme }: { conn: Connection; from: Vec3; to: Vec3; lane: number; packet: PacketState; theme: 'dark' | 'light' }) {

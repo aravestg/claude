@@ -127,6 +127,7 @@ export function Viewport() {
         <span><i className="lg lg--resp" />respuesta</span>
         <span><i className="lg lg--hs" />handshake</span>
         <span><i className="lg lg--fail" />falla</span>
+        <span><i className="lg lg--async" />asíncrono</span>
         <span><i className="lg lg--dash" />sin cifrado</span>
       </div>
 

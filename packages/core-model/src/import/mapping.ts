@@ -132,6 +132,12 @@ export function isNonTrafficRelation(label: string): boolean {
   return /\b(cifra|cifrado|encrypt|emite|emits|issues?|adjunta|attach(es)?|importa(r)?( cert)?|cert(ificado)?\b|deploy|despliegue|pull image|ci\/cd|build|backup|respaldo|replica(ción)?|replicat)/i.test(label);
 }
 
+/** Comunicación asíncrona según el texto de la flecha o el tipo de destino. */
+export function isAsyncRelation(label: string, targetType: string): boolean {
+  if (['integration.email', 'observability.monitoring'].includes(targetType)) return true;
+  return /\b(async|as[ií]ncron[oa]|cola|queue|sqs|sns|kafka|pub\/?sub|evento|event|webhook|e-?mail|correo|notifica(ción|ciones)?|logs?)\b/i.test(label);
+}
+
 export function protocolFromLabel(label: string): { protocol?: 'HTTPS' | 'HTTP' | 'JDBC' | 'DNS' | 'TCP' | 'SSH' | 'SFTP'; port?: number } {
   const l = label.toLowerCase();
   const portM = l.match(/(?::|port\s*|puerto\s*)(\d{2,5})\b/) ?? l.match(/\b(\d{2,5})\b/);

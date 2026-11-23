@@ -28,7 +28,8 @@ export const PACKET_COLOR = {
   response: '#22c55e',
   query: '#a855f7',
   rst: '#ef4444',
-  error: '#ef4444'
+  error: '#ef4444',
+  async: '#8a6fd6'
 } as const;
 
 export const CATEGORY_COLOR: Record<string, string> = {
