@@ -151,3 +151,39 @@ test('asíncrono: la caída de un destino asíncrono no afecta al usuario y se d
   await page.getByRole('tab', { name: /Diagnóstico/ }).click();
   await expect(page.getByTestId('recommendation').first()).toContainText('se pierden');
 });
+
+/** Cuenta pares de etiquetas visibles que se intersectan y las críticas forzadas sin hueco. */
+async function labelOverlaps(page: Page) {
+  await page.waitForTimeout(400);
+  return page.evaluate(() => {
+    const layer = document.querySelector<HTMLElement>('.asa-label-layer');
+    const rs = [...document.querySelectorAll<HTMLElement>('.asa-label-layer > div')]
+      .filter((e) => getComputedStyle(e).visibility !== 'hidden' && e.offsetWidth > 0)
+      .map((e) => (e.lastElementChild ?? e).getBoundingClientRect());
+    let pairs = 0;
+    for (let i = 0; i < rs.length; i++)
+      for (let j = i + 1; j < rs.length; j++) {
+        const a = rs[i]!, b = rs[j]!;
+        if (a.left < b.right - 1 && a.right > b.left + 1 && a.top < b.bottom - 1 && a.bottom > b.top + 1) pairs++;
+      }
+    return { visible: rs.length, pairs, forced: Number(layer?.dataset['forced'] ?? 0) };
+  });
+}
+
+test('sin superposiciones: ninguna etiqueta se cruza con otra ni tapa una ficha ajena', async ({ page }) => {
+  await runToEnd(page);
+  let m = await labelOverlaps(page);
+  expect(m.visible).toBeGreaterThan(3);
+  expect(m.pairs).toBe(0);
+  expect(m.forced).toBe(0);
+  await page.getByTestId('open-import').click();
+  await page.getByTestId('import-file').setInputFiles('../../packages/core-model/test/fixtures/hybrid-patterns.drawio');
+  await page.getByTestId('import-confirm').click();
+  await page.getByTestId('import-simulate').click();
+  await expect(page.getByTestId('sim-status')).toContainText('evento');
+  const timeline = page.getByTestId('timeline');
+  await timeline.fill((await timeline.getAttribute('max'))!);
+  m = await labelOverlaps(page);
+  expect(m.pairs).toBe(0);
+  expect(m.forced).toBe(0);
+});

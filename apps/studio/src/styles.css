@@ -475,3 +475,7 @@ h4 { margin: 14px 0 6px; font-size: 11px; text-transform: uppercase; letter-spac
 .import-layout label { display: inline-flex; gap: 6px; align-items: center; }
 @media (max-width: 760px) { .scrub { flex-wrap: wrap; } .scrub input[type='range'] { flex-basis: 100%; order: 3; } .scrub__status { white-space: normal; } }
 @media (prefers-reduced-motion: reduce) { .is-dim { transition: none; } }
+
+/* línea guía de etiquetas desplazadas */
+.asa-leader { position: absolute; display: none; height: 0; border-top: 1.3px dashed #6f6961; transform-origin: 0 0; z-index: -1; pointer-events: none; }
+.app[data-theme='dark'] .asa-leader { border-top-color: #a39a8c; }

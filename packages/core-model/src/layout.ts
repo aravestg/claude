@@ -12,8 +12,8 @@ export interface FlowLayoutOptions {
 }
 
 export function flowLayout(model: ArchitectureModel, opts: FlowLayoutOptions = {}): Record<string, Vec3> {
-  const layerGap = opts.layerGap ?? 6.5;
-  const rowGap = opts.rowGap ?? 4.6;
+  const layerGap = opts.layerGap ?? 8.5;
+  const rowGap = opts.rowGap ?? 6.6;
   const ids = model.components.map((c) => c.id);
   const beh = (id: string) => {
     const c = model.components.find((x) => x.id === id)!;

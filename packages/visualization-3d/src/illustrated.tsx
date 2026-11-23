@@ -5,6 +5,8 @@
  */
 import { Edges, Line, RoundedBox } from '@react-three/drei';
 import { Label } from './labels';
+
+const namePriority = (status: VisualStatus, dim?: boolean) => (dim ? 2 : status === 'idle' || status === 'ok' ? 20 : 30);
 import { createContext, useContext, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import * as THREE from 'three';
@@ -290,7 +292,7 @@ export function FaceLabel({ shape, name, id, status, theme, dim }: { shape: Shap
   const clean = short.length > 22 ? `${short.slice(0, 21)}…` : short;
   const words = clean.length > 8 ? clean.split(/\s+/) : [clean];
   return (
-    <Label position={[-0.32, topOf(shape) + 0.02, -0.32]} center zIndexRange={[12, 0]} style={{ pointerEvents: 'none' }}>
+    <Label position={[-0.32, topOf(shape) + 0.02, -0.32]} center z={namePriority(status, dim)} owner={id}>
       <div className={`ill-face ill-face--${theme} ill-face--${status}${dim ? ' is-dim' : ''}`} data-component-label={id} style={{ ['--halo' as string]: faceColor(shape, status) }}>
         <Icon shape={shape} size={22} />
         <span>{words.length > 2 ? `${words[0]}\n${words.slice(1).join(' ')}` : words.join('\n')}</span>
@@ -301,7 +303,7 @@ export function FaceLabel({ shape, name, id, status, theme, dim }: { shape: Shap
 
 export function NamePill({ shape, name, id, selected, connectSource, theme, dim }: { shape: ShapeKind; name: string; id: string; selected: boolean; connectSource: boolean; theme: 'dark' | 'light'; dim?: boolean }) {
   return (
-    <Label position={[0, 0, 2.15]} center zIndexRange={[12, 0]} style={{ pointerEvents: 'none' }}>
+    <Label position={[0, 0, 2.15]} center z={namePriority(selected ? 'active' : 'idle', dim)} owner={id}>
       <div className={`ill-pill ill-pill--${theme}${selected ? ' ill-pill--selected' : ''}${connectSource ? ' ill-pill--source' : ''}${dim ? ' is-dim' : ''}`} data-component-label={id}>
         <Icon shape={shape} size={14} />
         <span>{name}</span>
@@ -310,11 +312,11 @@ export function NamePill({ shape, name, id, selected, connectSource, theme, dim 
   );
 }
 
-export function StatusBadge({ shape, status, badge }: { shape: ShapeKind; status: VisualStatus; badge: string | undefined }) {
+export function StatusBadge({ shape, status, badge, id }: { shape: ShapeKind; status: VisualStatus; badge: string | undefined; id: string }) {
   const text = badge ?? (status === 'down' ? '✕ Caído' : status === 'error' ? '✕ Error' : status === 'waiting' ? '⏳ Esperando' : undefined);
   if (!text) return null;
   return (
-    <Label position={[0, topOf(shape) + 0.9, 0]} center zIndexRange={[14, 0]} style={{ pointerEvents: 'none' }}>
+    <Label position={[0, topOf(shape) + 0.9, 0]} center z={45} owner={`badge:${id}`}>
       <div className={`ill-badge ill-badge--${status}`} data-status-badge>
         {text}
       </div>
@@ -354,7 +356,7 @@ export function IllustratedConnection(p: { conn: Connection; from: Vec3; to: Vec
         <boxGeometry args={[0.7, 0.6, len]} />
       </mesh>
       {p.selected && (
-        <Label position={[mid.x, 0.6, mid.z]} center zIndexRange={[16, 0]} style={{ pointerEvents: 'none' }}>
+        <Label position={[mid.x, 0.6, mid.z]} center z={35}>
           <div className="ill-note">
             {p.conn.protocol}:{p.conn.port}
             {p.conn.props.encrypted ? ' · TLS' : ' · sin cifrado'}
@@ -403,7 +405,7 @@ export function IllustratedPacket({ conn, from, to, lane, packet, theme }: { con
           <sphereGeometry args={[0.17, 18, 12]} />
         </Inked>
       )}
-      <Label position={[notePos.x, 0.6, notePos.z]} center zIndexRange={[30, 0]} style={{ pointerEvents: 'none' }}>
+      <Label position={[notePos.x, 0.6, notePos.z]} center z={50}>
         <div className={`ill-note ill-note--${packet.variant}`} data-testid="packet-caption">
           {packet.caption}
         </div>
@@ -428,7 +430,7 @@ export function IllustratedZone({ group, min, max, pad, theme }: { group: Group;
       </mesh>
       <Line points={pts} color={color} lineWidth={1.4} dashed dashSize={0.35} gapSize={0.25} />
       {!group.parentId && (
-      <Label position={[x0, 0.05, z0]} zIndexRange={[2, 0]} style={{ pointerEvents: 'none' }}>
+      <Label position={[x0, 0.05, z0]} center={false} z={-5} alt={false}>
         <div className="ill-zone">
           {group.name}
           {group.props.cidr ? ` · ${group.props.cidr}` : ''}

@@ -3,7 +3,7 @@
  * eventos de simulación. NO evalúa reglas: sólo dibuja lo que los eventos dicen que pasó.
  */
 import { Grid, Line, OrbitControls } from '@react-three/drei';
-import { Label, LabelContext, LabelLayer, LabelProjector, LabelRegistry } from './labels';
+import { Label, LabelContext, LabelLayer, LabelObstacle, LabelProjector, LabelRegistry } from './labels';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import type { ThreeEvent } from '@react-three/fiber';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -272,6 +272,7 @@ function ComponentNode(p: {
 
   return (
     <group position={[p.position.x, 0, p.position.z]}>
+      <LabelObstacle owner={p.id} radius={p.illustrated ? 1.4 : 1.1} />
       <group
         onPointerDown={onDown}
         onPointerMove={onMoveEvt}
@@ -314,7 +315,7 @@ function ComponentNode(p: {
           ) : (
             <NamePill shape={def?.shape ?? 'server'} name={p.name} id={p.id} selected={p.selected} connectSource={p.connectSource} theme={p.theme} dim={p.dim} />
           )}
-          <StatusBadge shape={def?.shape ?? 'server'} status={p.status} badge={p.badge} />
+          <StatusBadge shape={def?.shape ?? 'server'} status={p.status} badge={p.badge} id={p.id} />
         </>
       )}
       {!p.illustrated && (
@@ -327,7 +328,7 @@ function ComponentNode(p: {
           opacity={lit || p.selected || hover ? 0.95 : 0.6}
         />
       </mesh>
-      <Label position={[0, 2.35, 0]} center distanceFactor={20} zIndexRange={[10, 0]} style={{ pointerEvents: 'none' }}>
+      <Label position={[0, 2.35, 0]} center z={p.selected ? 30 : 15} owner={p.id}>
         <div className={`asa-label asa-label--${p.status}${p.selected ? ' asa-label--selected' : ''}`} data-component-label={p.id}>
           <div className="asa-label__name">{p.name}</div>
           <div className="asa-label__type">{def?.label ?? p.type}</div>
@@ -388,7 +389,7 @@ function ConnectionView(p: {
           p.onSelect();
         }}
       />
-      <Label position={[mid.x, mid.y + 0.25, mid.z]} center distanceFactor={18} zIndexRange={[5, 0]} style={{ pointerEvents: 'none' }}>
+      <Label position={[mid.x, mid.y + 0.25, mid.z]} center z={p.selected ? 35 : p.status ? 8 : 3}>
         <div className={`asa-conn-label${p.status ? ` asa-conn-label--${p.status}` : ''}`}>
           {p.conn.protocol}:{p.conn.port}
           {p.conn.props.encrypted ? ' 🔒' : ''}
@@ -419,7 +420,7 @@ function PacketView(p: { conn: Connection; from: Vec3; to: Vec3; lane: number; p
           <meshBasicMaterial color={color} transparent opacity={0.5 - i * 0.14} />
         </mesh>
       ))}
-      <Label position={[head.x, head.y + 0.55, head.z]} center distanceFactor={18} zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
+      <Label position={[head.x, head.y + 0.55, head.z]} center z={50}>
         <div className={`asa-packet-label asa-packet-label--${p.packet.variant}`}>{p.packet.label || p.packet.variant}</div>
       </Label>
     </group>
@@ -459,7 +460,7 @@ function GroupBox(p: { group: Group; model: ArchitectureModel; pos: (id: string)
       <lineSegments geometry={edges} raycast={() => null}>
         <lineBasicMaterial color={color} transparent opacity={0.55} />
       </lineSegments>
-      <Label position={[-w / 2 + 0.2, h / 2, -depth / 2]} distanceFactor={24} zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
+      <Label position={[-w / 2 + 0.2, h / 2, -depth / 2]} center={false} z={-5} alt={false}>
         <div className="asa-group-label" style={{ borderColor: color, color }}>
           {p.group.name}
           {p.group.props.cidr ? ` · ${p.group.props.cidr}` : ''}
@@ -496,7 +497,7 @@ function CameraRig(p: ArchitectureCanvasProps & { pos: (id: string) => Vec3 }) {
         break;
       case 'front':
         // 3/4 frontal: conserva la lectura izquierda→derecha / arriba→abajo de un diagrama 2D
-        pos = ortho ? new THREE.Vector3(c.x, D * 0.85, c.z + D) : new THREE.Vector3(c.x, s * 0.75, c.z + s * 0.85);
+        pos = ortho ? new THREE.Vector3(c.x, D * 1.2, c.z + D) : new THREE.Vector3(c.x, s * 0.95, c.z + s * 0.8);
         break;
       case 'focus': {
         const id = p.selection?.kind === 'component' ? p.selection.id : p.sceneState.focusId;
