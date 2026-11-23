@@ -119,3 +119,43 @@ describe('esquema de escenarios', async () => {
     expect(parseScenarios([{ id: 'x' }]).ok).toBe(false);
   });
 });
+
+describe('patrones de diagramas reales (híbrido)', async () => {
+  const r = await importDrawio(fixture('hybrid-patterns.drawio'), { inflateRaw });
+  const conn = (from: string, to: string) => r.report.connections.find((k) => k.from.startsWith(from) && k.to.startsWith(to));
+  const type = (name: string) => r.model.components.find((c) => c.name.startsWith(name))?.type;
+  it('reconoce VPN, NAT, endpoints, KMS, Secrets, integración y SaaS por grupo', () => {
+    expect(type('Direct Connect')).toBe('network.vpn');
+    expect(type('NAT Gateway')).toBe('network.nat_gateway');
+    expect(type('Endpoint')).toBe('network.vpc_endpoint');
+    expect(type('AWS KMS')).toBe('security.kms');
+    expect(type('Secrets Manager')).toBe('security.secrets');
+    expect(type('hr-exp-api')).toBe('integration.api_gateway');
+    expect(type('Sistema de RR.HH.')).toBe('integration.saas_api');
+    expect(type('Proveedor de identidad')).toBe('integration.saas_api');
+  });
+  it('usa la primera línea como nombre y conserva nombres genéricos completos', () => {
+    expect(r.model.components.map((c) => c.name)).toEqual(expect.arrayContaining(['ALB interno', 'Backend ECS Fargate', 'Endpoint Secrets', 'RDS PostgreSQL', 'NAT Gateway']));
+  });
+  it('une conectores fuera de página y resuelve flechas entre grupos', () => {
+    expect(conn('Backend', 'Proveedor de identidad')?.note).toMatch(/conector «B»/);
+    expect(conn('Direct Connect', 'ALB interno')?.note).toMatch(/entre grupos/); // ① red corporativa → subred frontend: sale por la VPN y entra por el ALB
+    expect(conn('Frontend', 'Backend')).toMatchObject({ protocol: 'HTTP', port: 3000 });
+    expect(conn('Usuarios internos', 'Direct Connect')?.note).toMatch(/cliente que lo consulta/);
+  });
+  it('interpreta TLS sobre PostgreSQL como JDBC y omite relaciones que no son tráfico', () => {
+    expect(conn('Backend', 'RDS PostgreSQL')).toMatchObject({ protocol: 'JDBC', port: 5432 });
+    const reasons = r.report.skipped.map((s) => s.reason);
+    expect(reasons.filter((x) => x.startsWith('Relación de configuración'))).toHaveLength(2);
+    expect(reasons).toEqual(expect.arrayContaining([expect.stringMatching(/^Configuración de red/), 'Nota o tabla explicativa sin conexiones']));
+  });
+  it('enlaza endpoints al servicio que nombran y toma el host del DNS', () => {
+    expect(conn('Endpoint Secrets', 'Secrets Manager')?.note).toMatch(/supuesto/);
+    expect(conn('PrivateLink', 'hr-exp-api')).toBeTruthy();
+    const client = r.model.components.find((c) => c.type === 'client.browser')!;
+    expect(client.props['targetHost']).toBe('portal.ejemplo.corp');
+  });
+  it('genera escenarios propios de la arquitectura híbrida', () => {
+    expect(r.scenarios.map((s) => s.name)).toEqual(expect.arrayContaining([expect.stringMatching(/Caída de RDS/), expect.stringMatching(/Caída de Direct Connect/), expect.stringMatching(/Caída de (Proveedor|Sistema)/)]));
+  });
+});

@@ -160,6 +160,17 @@ export function Shape(p: ShapeProps) {
           ))}
         </group>
       );
+    case 'tunnel':
+    case 'key':
+    case 'chart':
+    case 'mail':
+    case 'saas':
+      return (
+        <mesh position={[0, 0.6, 0]} castShadow>
+          <cylinderGeometry args={[0.85, 0.85, 1.2, 6]} />
+          {m}
+        </mesh>
+      );
     case 'bucket':
       return (
         <mesh position={[0, 0.6, 0]} castShadow>

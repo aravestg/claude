@@ -45,3 +45,33 @@ describe('simulación de diagramas importados', async () => {
     expect(simulate(g.model, g.scenarios[0]!).outcome).toBe('success');
   });
 });
+
+describe('simulación del diagrama híbrido', async () => {
+  const h = await importDrawio(fx('hybrid-patterns.drawio'), { inflateRaw });
+  const sc = (k: string) => h.scenarios.find((s) => s.id.includes(k))!;
+  it('el flujo principal pasa por VPN, ALB, frontend, backend, endpoints e integración y responde 200', () => {
+    const r = simulate(h.model, sc('main'));
+    expect(r.outcome).toBe('success');
+    const path = r.requests[0]!.path;
+    for (const n of ['direct-connect-vpn', 'alb-interno', 'frontend-ecs-fargate', 'backend-ecs-fargate', 'rds-postgresql', 'endpoint-secrets', 'secrets-manager', 'hr-exp-api', 'sistema-de-rr-hh']) expect(path.some((p) => p.startsWith(n)), n).toBe(true);
+  });
+  it('la caída de la VPN, de la BD o de un SaaS falla con la causa en el lugar correcto', () => {
+    for (const [k, at] of [['vpn-down', 'direct-connect-vpn'], ['store-down', 'rds-postgresql'], ['saas-down', '']] as const) {
+      const r = simulate(h.model, sc(k));
+      expect(r.outcome, k).toBe('failure');
+      const root = r.events.find((e) => e.id === r.requests[0]!.rootCauseEventId)!;
+      expect(root.type).toBe('SERVICE_UNAVAILABLE');
+      if (at) expect(root.sourceId).toBe(at);
+    }
+  });
+});
+
+describe('diagnóstico según el tipo de dependencia', async () => {
+  const h = await importDrawio(fx('hybrid-patterns.drawio'), { inflateRaw });
+  it('para un SaaS caído recomienda aislamiento, no Multi-AZ', () => {
+    const s = h.scenarios.find((x) => x.id.includes('saas-down'))!;
+    const ids = diagnose(h.model, simulate(h.model, s)).map((r) => r.id);
+    expect(ids.some((i) => i.startsWith('external:'))).toBe(true);
+    expect(ids.some((i) => i.startsWith('multiaz:'))).toBe(false);
+  });
+});

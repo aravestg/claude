@@ -12,7 +12,12 @@ const P: Record<ShapeKind, string> = {
   function: 'M7 20l5-9 M9 4c3 0 4 2 5 6l3 10',
   database: 'M5 6c0-1.7 3-3 7-3s7 1.3 7 3s-3 3-7 3s-7-1.3-7-3z M5 6v12c0 1.7 3 3 7 3s7-1.3 7-3V6 M5 12c0 1.7 3 3 7 3s7-1.3 7-3',
   nosql: 'M4 6h16v4H4z M4 14h16v4H4z M7 8h.01 M7 16h.01',
-  bucket: 'M4 6h16l-2 14H6z M4 6c0-1.5 3.6-2 8-2s8 .5 8 2'
+  bucket: 'M4 6h16l-2 14H6z M4 6c0-1.5 3.6-2 8-2s8 .5 8 2',
+  tunnel: 'M3 18V10a9 9 0 0 1 18 0v8 M7 18v-7a5 5 0 0 1 10 0v7 M3 18h18',
+  key: 'M8 14a4 4 0 1 1 0-8a4 4 0 0 1 0 8z M11 11l9 9 M16 16l2-2 M18 18l2-2',
+  chart: 'M4 20V4 M4 20h16 M8 16v-5 M12 16V8 M16 16v-3',
+  mail: 'M3 6h18v12H3z M3 7l9 6l9-6',
+  saas: 'M7 18a4 4 0 0 1-.5-8A6 6 0 0 1 18 9a4.5 4.5 0 0 1-.5 9z'
 };
 
 export function Icon({ shape, size = 16 }: { shape: ShapeKind; size?: number }) {

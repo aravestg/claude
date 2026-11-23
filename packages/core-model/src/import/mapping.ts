@@ -12,10 +12,23 @@ export interface DrawioRule {
   confidence: 'alta' | 'media' | 'baja';
 }
 
+/** Tipo especial: la figura es configuración (no un componente) y se omite informándolo. */
+export const IGNORE_TYPE = '__config__';
+
 const STYLE_RULES: DrawioRule[] = [
+  // ---- configuración de red: no son componentes en el camino del tráfico ----
+  { type: IGNORE_TYPE, style: /aws4\.(route_table|network_access_control_list|security_group|flow_logs)|route_tables|network_security_group_rules/, confidence: 'alta' },
   // ---- AWS (mxgraph.aws4) ----
+  { type: 'network.vpn', style: /aws4\.(site_to_site_vpn|vpn_gateway|vpn_connection|direct_connect|client_vpn|transit_gateway|customer_gateway)/, confidence: 'alta' },
+  { type: 'network.nat_gateway', style: /aws4\.nat_gateway/, confidence: 'alta' },
+  { type: 'network.vpc_endpoint', style: /aws4\.(endpoints?|privatelink|vpc_endpoint|interface_endpoint|gateway_endpoint)/, confidence: 'alta' },
+  { type: 'security.kms', style: /aws4\.(key_management_service|kms|cloudhsm)/, confidence: 'alta' },
+  { type: 'security.secrets', style: /aws4\.(secrets_manager|systems_manager_parameter_store)/, confidence: 'alta' },
+  { type: 'security.certificates', style: /aws4\.(certificate_manager|private_certificate_authority|acm)/, confidence: 'alta' },
+  { type: 'observability.monitoring', style: /aws4\.(cloudwatch|cloudtrail|x_ray|managed_service_for_prometheus|managed_grafana)/, confidence: 'alta' },
+  { type: 'integration.email', style: /aws4\.(simple_email_service|ses|pinpoint)/, confidence: 'alta' },
   { type: 'compute.function', style: /aws4\.(lambda|lambda_function)/, confidence: 'alta' },
-  { type: 'integration.api_gateway', style: /aws4\.(api_gateway|endpoint)/, confidence: 'alta' },
+  { type: 'integration.api_gateway', style: /aws4\.api_gateway/, confidence: 'alta' },
   { type: 'network.load_balancer', style: /aws4\.(application_load_balancer|network_load_balancer|elastic_load_balancing|classic_load_balancer)/, confidence: 'alta' },
   { type: 'data.nosql', style: /aws4\.(dynamodb|documentdb|elasticache|keyspaces)/, confidence: 'alta' },
   { type: 'data.postgresql', style: /aws4\.(rds|aurora|database|rds_instance|db_instance)/, confidence: 'alta' },
@@ -26,6 +39,11 @@ const STYLE_RULES: DrawioRule[] = [
   { type: 'client.browser', style: /aws4\.(user|users|client|mobile_client|traditional_server_client)/, confidence: 'alta' },
   { type: 'compute.app_server', style: /aws4\.(ec2|instance|instances|ecs|fargate|eks|elastic_beanstalk|container|app_runner|lightsail)/, confidence: 'alta' },
   // ---- Azure ----
+  { type: 'network.vpn', style: /(vpn_gateways|expressroute|virtual_network_gateways)/, confidence: 'alta' },
+  { type: 'network.nat_gateway', style: /azure2?\/.*nat/, confidence: 'media' },
+  { type: 'network.vpc_endpoint', style: /(private_endpoint|private_link)/, confidence: 'alta' },
+  { type: 'security.secrets', style: /key_vaults?/, confidence: 'alta' },
+  { type: 'observability.monitoring', style: /(azure2?\/.*monitor|log_analytics|application_insights)/, confidence: 'alta' },
   { type: 'compute.function', style: /(azure2?\/.*function_apps|mxgraph\.azure\.azure_functions)/, confidence: 'alta' },
   { type: 'integration.api_gateway', style: /(api_management|mxgraph\.azure\.api_management)/, confidence: 'alta' },
   { type: 'network.load_balancer', style: /(azure2?\/.*(load_balancers|application_gateways|front_doors)|mxgraph\.azure\.load_balancer)/, confidence: 'alta' },
@@ -36,6 +54,11 @@ const STYLE_RULES: DrawioRule[] = [
   { type: 'security.firewall', style: /(azure2?\/.*firewalls|web_application_firewall|network_security_groups)/, confidence: 'alta' },
   { type: 'compute.app_server', style: /(virtual_machine|app_services|container_instances|kubernetes_services|mxgraph\.azure\.(virtual_machine|web_role|worker_role))/, confidence: 'alta' },
   // ---- Google Cloud ----
+  { type: 'network.vpn', style: /gcp2?\.(cloud_vpn|cloud_interconnect|dedicated_interconnect)/, confidence: 'alta' },
+  { type: 'network.nat_gateway', style: /gcp2?\.cloud_nat/, confidence: 'alta' },
+  { type: 'security.kms', style: /gcp2?\.(cloud_kms|key_management)/, confidence: 'alta' },
+  { type: 'security.secrets', style: /gcp2?\.secret_manager/, confidence: 'alta' },
+  { type: 'observability.monitoring', style: /gcp2?\.(cloud_logging|cloud_monitoring|stackdriver)/, confidence: 'alta' },
   { type: 'compute.function', style: /gcp2?\.(cloud_functions|functions)/, confidence: 'alta' },
   { type: 'integration.api_gateway', style: /gcp2?\.(api_gateway|apigee|endpoints)/, confidence: 'alta' },
   { type: 'network.load_balancer', style: /gcp2?\.(cloud_load_balancing|load_balancing)/, confidence: 'alta' },
@@ -55,6 +78,16 @@ const STYLE_RULES: DrawioRule[] = [
 ];
 
 const LABEL_RULES: DrawioRule[] = [
+  { type: 'integration.api_gateway', label: /\b(mulesoft|anypoint|(exp|sys|prc|proc)-api|esb|api proxy|boomi|tibco)\b/, confidence: 'media' },
+  { type: 'integration.saas_api', label: /\b(entra( id)?|azure ad|okta|keycloak|auth0|identity provider|idp|teams|slack|webhook|buk|invgate|servicenow|jira|salesforce|workday|sap|saas|sistema externo|external system)\b/, confidence: 'media' },
+  { type: 'network.vpn', label: /\b(vpn|direct connect|expressroute|interconnect|ipsec)\b/, confidence: 'media' },
+  { type: 'network.nat_gateway', label: /\bnat( gateway)?\b/, confidence: 'media' },
+  { type: 'network.vpc_endpoint', label: /\b(vpc endpoint|privatelink|private link|private endpoint)\b/, confidence: 'media' },
+  { type: 'security.kms', label: /\b(kms|key vault|hsm)\b/, confidence: 'media' },
+  { type: 'security.secrets', label: /\b(secrets?( manager)?|vault)\b/, confidence: 'media' },
+  { type: 'security.certificates', label: /\b(acm|pki|certificad[oa]s?|certificate authority|ca interna)\b/, confidence: 'media' },
+  { type: 'observability.monitoring', label: /\b(cloudwatch|monitoring|monitoreo|grafana|prometheus|datadog|elk|splunk)\b/, confidence: 'media' },
+  { type: 'integration.email', label: /\b(ses|smtp|e-?mail|correo|buz[oó]n(es)?)\b/, confidence: 'media' },
   { type: 'integration.api_gateway', label: /\b(api ?gateway|apigee|api management|apim|kong)\b/, confidence: 'media' },
   { type: 'network.load_balancer', label: /\b(alb|elb|nlb|load ?balancer|balanceador|haproxy|f5|nginx lb)\b/, confidence: 'media' },
   { type: 'security.firewall', label: /\b(firewall|waf|cortafuegos|palo ?alto|fortinet)\b/, confidence: 'media' },
@@ -94,14 +127,19 @@ export function groupKindOf(style: string, label: string): GroupKind | undefined
 }
 
 /** Protocolo/puerto indicados en el texto de una flecha. */
+/** Flechas que expresan configuración o ciclo de vida, no tráfico en tiempo de ejecución. */
+export function isNonTrafficRelation(label: string): boolean {
+  return /\b(cifra|cifrado|encrypt|emite|emits|issues?|adjunta|attach(es)?|importa(r)?( cert)?|cert(ificado)?\b|deploy|despliegue|pull image|ci\/cd|build|backup|respaldo|replica(ción)?|replicat)/i.test(label);
+}
+
 export function protocolFromLabel(label: string): { protocol?: 'HTTPS' | 'HTTP' | 'JDBC' | 'DNS' | 'TCP' | 'SSH' | 'SFTP'; port?: number } {
   const l = label.toLowerCase();
   const portM = l.match(/(?::|port\s*|puerto\s*)(\d{2,5})\b/) ?? l.match(/\b(\d{2,5})\b/);
   const port = portM ? Number(portM[1]) : undefined;
   const validPort = port && port > 0 && port < 65536 ? port : undefined;
-  if (/https|tls|ssl|443/.test(l)) return { protocol: 'HTTPS', port: validPort ?? 443 };
+  if (/jdbc|odbc|\bsql\b|5432|3306|1521|1433|postgres|mysql|oracle|sql ?server/.test(l)) return { protocol: 'JDBC', ...(validPort ? { port: validPort } : {}) };
+  if (/https|tls|ssl|\b443\b/.test(l)) return { protocol: 'HTTPS', port: validPort ?? 443 };
   if (/\bhttp\b|rest|graphql|grpc/.test(l)) return { protocol: 'HTTP', ...(validPort ? { port: validPort } : {}) };
-  if (/jdbc|odbc|sql|5432|3306|1521|1433|postgres|mysql|oracle/.test(l)) return { protocol: 'JDBC', ...(validPort ? { port: validPort } : {}) };
   if (/\bdns\b|\b53\b/.test(l)) return { protocol: 'DNS', port: 53 };
   if (/\bsftp\b/.test(l)) return { protocol: 'SFTP', port: validPort ?? 22 };
   if (/\bssh\b/.test(l)) return { protocol: 'SSH', port: validPort ?? 22 };

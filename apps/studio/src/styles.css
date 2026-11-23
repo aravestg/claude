@@ -439,3 +439,12 @@ h4 { margin: 14px 0 6px; font-size: 11px; text-transform: uppercase; letter-spac
 .tree__folder--static { cursor: default; }
 .stage__card--drop { outline: 3px dashed var(--accent); outline-offset: -6px; }
 @media (max-width: 760px) { .import-row { grid-template-columns: 1fr; } }
+
+/* nivel de detalle de etiquetas: lejos sólo íconos; medio nombres compactos; cerca completo */
+.asa-label-layer[data-lod='far'] .ill-face span,
+.asa-label-layer[data-lod='far'] .ill-zone { display: none; }
+.asa-label-layer[data-lod='far'] .ill-pill { font-size: 10px; padding: 2px 7px; }
+.asa-label-layer[data-lod='mid'] .ill-face { font-size: 10px; gap: 0; }
+.asa-label-layer[data-lod='mid'] .ill-face svg { width: 15px; height: 15px; }
+.asa-label-layer[data-lod='mid'] .ill-pill, .asa-label-layer[data-lod='mid'] .ill-note, .asa-label-layer[data-lod='mid'] .ill-badge { font-size: 10.5px; padding: 2px 8px; }
+.asa-label-layer[data-lod='mid'] .ill-zone { font-size: 9.5px; }

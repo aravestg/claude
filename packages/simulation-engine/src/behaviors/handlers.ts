@@ -31,6 +31,10 @@ export function handleRequest(run: Run, nodeId: string, req: SimRequest, trace: 
       return handleGateway(run, nodeId, req, trace);
     case 'service':
       return handleService(run, nodeId, req, trace);
+    case 'transit':
+      return handleTransit(run, nodeId, req, trace);
+    case 'datastore':
+      return serveApi(run, nodeId, trace);
     default:
       run.emit(trace, {
         type: 'ERROR_RETURNED',
@@ -100,6 +104,46 @@ export function forwardHttp(run: Run, conn: Connection, req: SimRequest, trace: 
     });
   }
   return out;
+}
+
+/**
+ * Tránsito usado como salto intermedio por un servicio (VPC endpoint, NAT, VPN): reenvía al
+ * siguiente componente. Si hay varios destinos usa el primero (orden determinista por ID).
+ */
+function handleTransit(run: Run, id: string, req: SimRequest, trace: Trace): Outcome {
+  const next = run.outgoing(id).filter((k) => k.protocol !== 'DNS');
+  if (!next.length) {
+    run.emit(trace, {
+      type: 'ERROR_RETURNED',
+      status: 'error',
+      sourceId: id,
+      failure: 'network',
+      data: { httpStatus: 502 },
+      message: `${run.name(id)} no tiene un destino al que reenviar → 502`,
+      basic: 'Este componente de red no lleva a ningún servicio.',
+      advanced: 'El tránsito no tiene conexiones salientes en el modelo: revise el diagrama o agregue la conexión al servicio que expone.'
+    });
+    return { kind: 'response', status: 502, error: `${run.name(id)} sin destino`, failure: 'network' };
+  }
+  const k = next[0]!;
+  const out = forwardHttp(run, k, req, trace);
+  return out.kind === 'response' ? out : { kind: 'response', status: 504, error: out.reason, failure: out.failure };
+}
+
+/** Almacén o API gestionada alcanzada por HTTP (p. ej. a través de un endpoint privado). */
+function serveApi(run: Run, id: string, trace: Trace): Outcome {
+  const d = datastoreProps(run.comp(id));
+  run.clock += d.queryMs;
+  run.emit(trace, {
+    type: 'PROCESSING_STARTED',
+    status: 'active',
+    sourceId: id,
+    data: { engine: d.engine, queryMs: d.queryMs },
+    message: `${run.name(id)} atiende la solicitud (${d.queryMs} ms)`,
+    basic: `${run.name(id)} responde a la llamada.`,
+    advanced: `Servicio gestionado/externo accedido por HTTPS; latencia estimada ${d.queryMs} ms.`
+  });
+  return { kind: 'response', status: 200, body: { from: id, source: 'synthetic' } };
 }
 
 function handleLoadBalancer(run: Run, id: string, req: SimRequest, trace: Trace): Outcome {
@@ -431,9 +475,9 @@ function attemptCall(run: Run, serviceId: string, conn: Connection, req: SimRequ
       attempt,
       ...(isSql
         ? { statement: 'SELECT id, status, total FROM orders WHERE id = $1', params: [String(req.payload['orderId'] ?? 'ORD-0')] }
-        : { operation: d.requiredAction || 'GetItem', key: { pk: String(req.payload['orderId'] ?? 'ORD-0') } })
+        : { operation: d.requiredAction || 'llamada API', key: { pk: String(req.payload['orderId'] ?? req.payload['requestId'] ?? 'ORD-0') } })
     },
-    message: `${run.name(serviceId)} → ${run.name(target)}: ${isSql ? 'consulta SQL' : d.requiredAction || 'GetItem'}${attempt > 1 ? ` (intento ${attempt})` : ''}`,
+    message: `${run.name(serviceId)} → ${run.name(target)}: ${isSql ? 'consulta SQL' : d.requiredAction || 'llamada API'}${attempt > 1 ? ` (intento ${attempt})` : ''}`,
     basic: `${run.name(serviceId)} pide datos a ${run.name(target)}.`,
     advanced: `${conn.protocol}:${conn.port}, latencia estimada ${run.latency(conn)} ms.`
   });

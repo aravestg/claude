@@ -39,7 +39,12 @@ export type ShapeKind =
   | 'function'
   | 'database'
   | 'nosql'
-  | 'bucket';
+  | 'bucket'
+  | 'tunnel'
+  | 'key'
+  | 'chart'
+  | 'mail'
+  | 'saas';
 
 export interface PortSpec {
   protocol: Protocol;

@@ -79,7 +79,8 @@ export function Viewport() {
         <div className="seg">
           {(
             [
-              ['perspective', 'Ajustar'],
+              ['perspective', 'Iso'],
+              ['front', 'Frente'],
               ['top', 'Planta'],
               ['side', 'Lateral'],
               ['focus', 'Enfocar']

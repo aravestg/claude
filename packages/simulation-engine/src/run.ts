@@ -90,7 +90,7 @@ export class Run {
     return this.byId.get(id)?.name ?? id;
   }
   outgoing(id: string): Connection[] {
-    return this.model.connections.filter((k) => k.sourceId === id).sort((a, b) => a.id.localeCompare(b.id));
+    return this.model.connections.filter((k) => k.sourceId === id).sort((a, b) => a.id.localeCompare(b.id, 'en', { numeric: true }));
   }
   latency(k: Connection): number {
     const extra = this.scenario.faults
@@ -112,13 +112,14 @@ export class Run {
     if (!f) return true;
     if (this.behavior(id) === 'datastore') {
       const p = datastoreProps(this.comp(id));
-      if (p.multiAz && this.clock >= (f.fromT ?? 0) + p.failoverMs) return true;
+      // sólo hay failover si existe una standby con tiempo de conmutación definido
+      if (p.multiAz && p.failoverMs > 0 && this.clock >= (f.fromT ?? 0) + p.failoverMs) return true;
     }
     return false;
   }
   failoverInProgress(id: string): boolean {
     const f = this.downFault(id);
-    return !!f && this.behavior(id) === 'datastore' && datastoreProps(this.comp(id)).multiAz && !this.isAvailable(id);
+    return !!f && this.behavior(id) === 'datastore' && datastoreProps(this.comp(id)).multiAz && datastoreProps(this.comp(id)).failoverMs > 0 && !this.isAvailable(id);
   }
   httpErrorFault(id: string): Extract<Fault, { kind: 'HTTP_ERROR' }> | undefined {
     return this.scenario.faults.find((f): f is Extract<Fault, { kind: 'HTTP_ERROR' }> => f.kind === 'HTTP_ERROR' && f.componentId === id);

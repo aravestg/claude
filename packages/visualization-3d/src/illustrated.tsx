@@ -26,7 +26,12 @@ const FACE: Partial<Record<ShapeKind, string>> = {
   globe: '#cbeadf',
   wall: '#f4c3b2',
   device: '#efe6d8',
-  bucket: '#d3e6f3'
+  bucket: '#d3e6f3',
+  tunnel: '#cfe1e6',
+  key: '#f3d3a8',
+  chart: '#d6ebcf',
+  mail: '#f6e0ae',
+  saas: '#e4daf3'
 };
 
 const STATUS_INK: Record<VisualStatus, string | null> = {
@@ -57,6 +62,11 @@ export function topOf(shape: ShapeKind): number {
     case 'distributor':
     case 'globe':
     case 'dns':
+    case 'tunnel':
+    case 'key':
+    case 'chart':
+    case 'mail':
+    case 'saas':
       return 1.05;
     case 'wall':
       return 1.1;
@@ -187,7 +197,13 @@ export function IllustratedBody({ shape, status, selected, theme }: { shape: Sha
     case 'distributor':
     case 'globe':
     case 'dns':
+    case 'key':
+    case 'chart':
+    case 'mail':
+    case 'saas':
       return <Hex r={shape === 'distributor' ? 1.45 : 1.35} h={1.05} fill={fill} ink={ink} lw={lw} />;
+    case 'tunnel':
+      return <Hex r={1.15} h={0.75} fill={fill} ink={ink} lw={lw} />;
     case 'database':
     case 'nosql':
       return (

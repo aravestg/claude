@@ -112,7 +112,27 @@ export function diagnose(model: ArchitectureModel, result: SimulationResult): Re
     if ((root.type === 'SERVICE_UNAVAILABLE' || root.type === 'CIRCUIT_BREAKER_REJECTED') && behavior(at) === 'datastore') {
       const ds = datastoreProps(model.components.find((c) => c.id === at)!);
       const callers = model.connections.filter((k) => k.targetId === at).map((k) => k.sourceId);
-      if (!ds.multiAz) {
+      const isOwnData = getDefinition(model.components.find((c) => c.id === at)!.type).category === 'data';
+      if (!isOwnData) {
+        add({
+          id: `external:${at}`,
+          problem: `${name(at)} es una dependencia síncrona en el camino crítico`,
+          evidence: `Evento SERVICE_UNAVAILABLE (t=${root.t} ms): su indisponibilidad se propaga hasta el usuario.`,
+          evidenceKind: 'simulation',
+          componentIds: [at, ...callers],
+          risk: 'Una falla fuera de su control deja la funcionalidad caída y consume hilos esperando timeouts.',
+          severity: 'high',
+          solution: `Aislar la llamada a ${name(at)}: timeout corto, circuit breaker y, si el negocio lo permite, respuesta degradada, caché o procesamiento asíncrono (cola).`,
+          justification: 'No se puede dar alta disponibilidad a un servicio externo; sí se puede limitar el impacto de su falla (principio de resiliencia / bulkhead).',
+          benefits: ['La aplicación sigue respondiendo (degradada)', 'Latencia de error acotada'],
+          tradeoffs: ['Mayor complejidad (colas, reintentos diferidos, idempotencia)', 'Datos posiblemente desactualizados si se usa caché'],
+          complexity: 'medium',
+          costImpact: 'low',
+          priority: 1,
+          alternatives: ['Mover la integración a una plataforma de integración con reintentos y DLQ', 'Llamada asíncrona con notificación posterior']
+        });
+      }
+      if (isOwnData && !ds.multiAz) {
         add({
           id: `multiaz:${at}`,
           problem: `${name(at)} es un punto único de falla`,

@@ -131,7 +131,7 @@ function scheduleFaults(run: Run, sys: Trace): void {
       });
       if (f.kind === 'COMPONENT_DOWN' && run.behavior(target) === 'datastore') {
         const p = datastoreProps(run.comp(target));
-        if (p.multiAz) {
+        if (p.multiAz && p.failoverMs > 0) {
           run.emit(sys, {
             type: 'FAILOVER_STARTED',
             status: 'warning',

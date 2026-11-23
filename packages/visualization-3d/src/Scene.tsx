@@ -487,6 +487,10 @@ function CameraRig(p: ArchitectureCanvasProps & { pos: (id: string) => Vec3 }) {
       case 'side':
         pos = ortho ? new THREE.Vector3(c.x, 6, c.z + D) : new THREE.Vector3(c.x, 4, c.z + s * 1.15);
         break;
+      case 'front':
+        // 3/4 frontal: conserva la lectura izquierda→derecha / arriba→abajo de un diagrama 2D
+        pos = ortho ? new THREE.Vector3(c.x, D * 0.85, c.z + D) : new THREE.Vector3(c.x, s * 0.75, c.z + s * 0.85);
+        break;
       case 'focus': {
         const id = p.selection?.kind === 'component' ? p.selection.id : p.sceneState.focusId;
         if (!id) return;
@@ -518,10 +522,10 @@ function CameraRig(p: ArchitectureCanvasProps & { pos: (id: string) => Vec3 }) {
       const pts = p.model.components.flatMap((c) => {
         const q = p.model.layout.positions[c.id] ?? ORIGIN;
         return [
-          [q.x - 1.8, 0, q.z - 1.8],
-          [q.x + 1.8, 0, q.z + 1.8],
-          [q.x - 1.8, 2.6, q.z + 1.8],
-          [q.x + 1.8, 2.6, q.z - 1.8],
+          [q.x - 2.8, 0, q.z - 2.8],
+          [q.x + 2.8, 0, q.z + 2.8],
+          [q.x - 2.8, 2.6, q.z + 2.8],
+          [q.x + 2.8, 2.6, q.z - 2.8],
           [q.x, 0, q.z + 2.6]
         ] as const;
       });
@@ -531,7 +535,7 @@ function CameraRig(p: ArchitectureCanvasProps & { pos: (id: string) => Vec3 }) {
         x0 = Math.min(x0, v.x); x1 = Math.max(x1, v.x); y0 = Math.min(y0, v.y); y1 = Math.max(y1, v.y);
       }
       if (Number.isFinite(x0)) {
-        const top = 84, bottom = 46, side = 24;
+        const top = 84, bottom = 46, side = 52;
         const ex = ((x1 - x0) * size.width) / 2;
         const ey = ((y1 - y0) * size.height) / 2;
         zoom = Math.max(6, Math.min((size.width - side * 2) / ex, (size.height - top - bottom) / ey, 80));

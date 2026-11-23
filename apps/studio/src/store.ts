@@ -145,7 +145,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   quality: 'high',
   visualStyle: 'illustrated',
   follow: false,
-  camera: { view: 'perspective', nonce: 0 },
+  camera: { view: init.templateId === IMPORTED ? 'front' : 'perspective', nonce: 0 },
   rightTab: 'step',
   mode: 'simulate',
   progress_: {},
@@ -217,7 +217,7 @@ export const useStudio = create<StudioState>((set, get) => ({
       cursor: -1,
       progress: 0,
       playing: false,
-      camera: { view: 'perspective', nonce: get().camera.nonce + 1 }
+      camera: { view: templateId === IMPORTED ? 'front' : 'perspective', nonce: get().camera.nonce + 1 }
     });
     persist({ templateId, model, scenarios });
     get().notify('info', label);

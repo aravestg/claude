@@ -11,7 +11,7 @@ import type { Scenario } from '../contracts';
 import { parseModel } from '../schema';
 import type { ArchitectureModel, ComponentInstance, Connection, Group, GroupKind, Protocol, Vec3 } from '../types';
 import { SCHEMA_VERSION } from '../types';
-import { classify, groupKindOf, protocolFromLabel } from './mapping';
+import { classify, groupKindOf, IGNORE_TYPE, isNonTrafficRelation, protocolFromLabel } from './mapping';
 import type { XmlNode } from './xml';
 import { base64ToBytes, decodeEntities, findAll, parseXml, utf8Decode, XmlError } from './xml';
 
@@ -33,11 +33,13 @@ interface Rect {
 export interface DetectedNode {
   cellId: string;
   label: string;
+  /** Primera línea del texto (nombre corto). */
+  title: string;
   rect: Rect;
   /** Tipo sugerido (undefined = no reconocido). */
   type: string | undefined;
   confidence: 'alta' | 'media' | 'baja' | 'ninguna';
-  by: 'estilo' | 'texto' | 'por defecto';
+  by: 'estilo' | 'texto' | 'grupo' | 'por defecto';
   styleHint: string;
 }
 
@@ -53,6 +55,8 @@ export interface DetectedEdge {
   source: string;
   target: string;
   label: string;
+  /** Unida a través de un conector fuera de página (Ⓐ, Ⓑ…). */
+  via?: string;
 }
 
 export interface DrawioAnalysis {
@@ -138,6 +142,7 @@ async function decompressPage(payload: string, inflateRaw: InflateRaw): Promise<
 interface Cell {
   id: string;
   label: string;
+  title: string;
   style: string;
   vertex: boolean;
   edge: boolean;
@@ -164,9 +169,11 @@ function collectCells(graph: XmlNode): Cell[] {
         const geoNode = cell.children.find((x) => x.name === 'mxGeometry');
         const num = (v?: string) => (v === undefined || v === '' ? 0 : Number(v));
         const geo = geoNode ? { x: num(geoNode.attrs['x']), y: num(geoNode.attrs['y']), w: num(geoNode.attrs['width']), h: num(geoNode.attrs['height']) } : undefined;
+        const rawLabel = c.attrs['label'] ?? cell.attrs['value'] ?? '';
         const entry: Cell = {
           id,
-          label: stripHtml(c.attrs['label'] ?? cell.attrs['value'] ?? ''),
+          label: stripHtml(rawLabel),
+          title: rawLabel.split(/<br\s*\/?>|\n|<\/div>|<div[^>]*>|<\/p>/i).map(stripHtml).find(Boolean) ?? '',
           style: cell.attrs['style'] ?? '',
           vertex: cell.attrs['vertex'] === '1',
           edge: cell.attrs['edge'] === '1',
@@ -218,8 +225,14 @@ export function analyzeDrawioPage(page: DrawioPage): DrawioAnalysis {
 
   const groups: DetectedGroup[] = [];
   const nodes: DetectedNode[] = [];
+  const connectors = new Map<string, string[]>(); // etiqueta → cellIds
   for (const { cell, rect } of candidates) {
     const st = cell.style.toLowerCase();
+    // conectores fuera de página: círculos pequeños con 1-2 caracteres (Ⓐ, B, 1…)
+    if (/^[\p{L}\p{N}]{1,2}$/u.test(cell.label) && (/ellipse|shape=(off|on)pageconnector|doubleellipse/.test(st) || (rect.w <= 60 && rect.h <= 60))) {
+      connectors.set(cell.label, [...(connectors.get(cell.label) ?? []), cell.id]);
+      continue;
+    }
     const looksGroup = /container=1|swimlane|aws4\.group|groupcenter|gricon=|mxgraph\.(azure|gcp2?)\..*group/.test(st);
     const kind = groupKindOf(cell.style, cell.label);
     const cls = classify(cell.style, cell.label);
@@ -229,6 +242,10 @@ export function analyzeDrawioPage(page: DrawioPage): DrawioAnalysis {
     }
     if (!cls && containsOthers(rect, cell.id)) {
       groups.push({ cellId: cell.id, label: cell.label, kind: 'region', rect });
+      continue;
+    }
+    if (cls?.type === IGNORE_TYPE) {
+      skipped.push({ cellId: cell.id, label: cell.label || '(sin texto)', reason: 'Configuración de red (tabla de rutas, ACL, SG): se refleja en la conectividad, no como componente' });
       continue;
     }
     if (!cls && !cell.label) {
@@ -246,6 +263,7 @@ export function analyzeDrawioPage(page: DrawioPage): DrawioAnalysis {
     nodes.push({
       cellId: cell.id,
       label: cell.label,
+      title: cell.title || cell.label,
       rect,
       type: cls?.type,
       confidence: cls?.confidence ?? 'ninguna',
@@ -254,7 +272,14 @@ export function analyzeDrawioPage(page: DrawioPage): DrawioAnalysis {
     });
   }
 
-  const edges: DetectedEdge[] = [];
+  // contexto de grupo: figuras sin tipo claro dentro de "Sistemas externos / SaaS"
+  for (const n of nodes) {
+    if (n.by === 'estilo' || n.confidence === 'alta') continue;
+    const g = groups.find((x) => inside(n.rect, x.rect) && /extern|saas|tercer|third.?part/i.test(x.label));
+    if (g && n.type !== 'integration.saas_api') Object.assign(n, { type: 'integration.saas_api', confidence: 'media', by: 'grupo' });
+  }
+
+  const rawEdges: DetectedEdge[] = [];
   for (const e of cells.filter((c) => c.edge)) {
     const childLabels = cells.filter((c) => c.parent === e.id && c.label).map((c) => c.label);
     const label = [e.label, ...childLabels].filter(Boolean).join(' ');
@@ -262,7 +287,31 @@ export function analyzeDrawioPage(page: DrawioPage): DrawioAnalysis {
       skipped.push({ cellId: e.id, label: label || 'flecha', reason: 'Flecha sin origen o destino conectados' });
       continue;
     }
-    edges.push({ cellId: e.id, source: e.source, target: e.target, label });
+    rawEdges.push({ cellId: e.id, source: e.source, target: e.target, label });
+  }
+
+  // une flechas a través de conectores con la misma etiqueta: (X → Ⓑ) + (Ⓑ → Y) = X → Y
+  const connectorOf = new Map<string, string>();
+  for (const [lbl, ids] of connectors) for (const id of ids) connectorOf.set(id, lbl);
+  const edges: DetectedEdge[] = rawEdges.filter((e) => !connectorOf.has(e.source) && !connectorOf.has(e.target));
+  for (const [lbl] of connectors) {
+    const ins = rawEdges.filter((e) => connectorOf.get(e.target) === lbl && !connectorOf.has(e.source));
+    const outs = rawEdges.filter((e) => connectorOf.get(e.source) === lbl && !connectorOf.has(e.target));
+    if (!ins.length || !outs.length) {
+      skipped.push({ cellId: `conector-${lbl}`, label: `Conector «${lbl}»`, reason: ins.length ? 'Conector sin flecha de salida' : 'Conector sin flecha de entrada: no se puede unir' });
+      continue;
+    }
+    for (const i of ins) for (const o of outs) edges.push({ cellId: `${i.cellId}+${o.cellId}`, source: i.source, target: o.target, label: [i.label, o.label].filter(Boolean).join(' · '), via: lbl });
+  }
+
+  // notas y tablas: figuras sin ninguna flecha, reconocidas sólo por texto y con texto largo/explicativo
+  const linked = new Set(edges.flatMap((e) => [e.source, e.target]));
+  for (const n of [...nodes]) {
+    if (linked.has(n.cellId) || n.by === 'estilo') continue;
+    if (n.label.length > 45 || /ingress|egress|nota\b|note\b|leyenda|legend|resumen|summary|⚠|reglas|rules/i.test(n.label)) {
+      nodes.splice(nodes.indexOf(n), 1);
+      skipped.push({ cellId: n.cellId, label: n.label.slice(0, 80), reason: 'Nota o tabla explicativa sin conexiones' });
+    }
   }
   return { pageName: page.name, nodes, groups, edges, skipped };
 }
@@ -305,6 +354,9 @@ export function buildFromAnalysis(
   const cellToComp = new Map<string, string>();
   const rects = new Map<string, Rect>();
   const reportComps: ImportReport['components'] = [];
+  const fullLabel = new Map<string, string>();
+  const titleCount = new Map<string, number>();
+  for (const n of a.nodes) titleCount.set(n.title, (titleCount.get(n.title) ?? 0) + 1);
   for (const n of a.nodes) {
     const choice = overrides[n.cellId] ?? n.type ?? 'compute.app_server';
     if (choice === 'ignore') {
@@ -316,11 +368,14 @@ export function buildFromAnalysis(
       continue;
     }
     const def = getDefinition(choice);
-    const name = (n.label || def.label).slice(0, 120);
-    const id = uid(n.label || def.label);
+    const generic = !n.title || n.title.length < 4 || (titleCount.get(n.title) ?? 0) > 1 || (!/\s/.test(n.title) && n.label.length <= 40);
+    const short = generic ? n.label : n.title;
+    const name = (short || def.label).slice(0, 80);
+    const id = uid(short || def.label);
     comps.push({ id, type: choice, name, props: {} });
     cellToComp.set(n.cellId, id);
     rects.set(id, n.rect);
+    fullLabel.set(id, n.label || name);
     reportComps.push({
       id,
       cellId: n.cellId,
@@ -346,22 +401,78 @@ export function buildFromAnalysis(
     connections.push(k);
     reportConns.push({ id: k.id, from: comp(sourceId).name, to: comp(targetId).name, protocol, port, ...(note ? { note } : {}) });
   };
-  for (const e of a.edges) {
-    let s = cellToComp.get(e.source);
-    let t = cellToComp.get(e.target);
+  const groupRectByCell = new Map(a.groups.map((g) => [g.cellId, g]));
+  const tokens = (x: string) => new Set(x.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^a-z0-9]+/).filter((t) => t.length >= 3 || /\d/.test(t)));
+  const STOP = new Set(['via', 'para', 'solo', 'desde', 'hacia', 'the', 'and', 'con', 'red', 'interna', 'https', 'http', 'tcp', 'api', 'rest']);
+  /** Representante de un grupo como extremo de una flecha. */
+  const resolveGroup = (gCell: string, role: 'source' | 'target', label: string): string | undefined => {
+    const g = groupRectByCell.get(gCell);
+    if (!g) return undefined;
+    const members = comps.filter((c) => inside(rects.get(c.id)!, g.rect));
+    if (!members.length) return undefined;
+    const lt = [...tokens(label)].filter((t) => !STOP.has(t) && !/^\d+$/.test(t));
+    const named = members.find((m) => lt.some((t) => tokens(fullLabel.get(m.id) ?? m.name).has(t)));
+    if (named) return named.id;
+    const by = (b: string[]) => members.find((m) => b.includes(behavior(m.id)));
+    if (role === 'source') {
+      const client = by(['client']);
+      if (client) {
+        // el tráfico sale del grupo por el tránsito al que se conecta el cliente (p. ej. VPN)
+        const exit = a.edges
+          .map((e) => [cellToComp.get(e.source), cellToComp.get(e.target)] as const)
+          .find(([src, dst]) => dst && members.some((m) => m.id === dst) && ['transit', 'firewall'].includes(behavior(dst)) && (src === client.id || (src && behavior(src) === 'dns')));
+        return exit?.[1] ?? client.id;
+      }
+      return (by(['service']) ?? members[0])!.id;
+    }
+    const pick = by(['load_balancer', 'api_gateway']) ?? by(['service']) ?? members[0]!;
+    // si al elegido ya llega un balanceador/gateway externo al grupo, se entra por él
+    const viaLb = a.edges
+      .map((e) => [cellToComp.get(e.source), cellToComp.get(e.target)] as const)
+      .find(([src, dst]) => dst === pick.id && src && ['load_balancer', 'api_gateway'].includes(behavior(src)) && !members.some((m) => m.id === src));
+    return viaLb?.[0] ?? pick.id;
+  };
+  const CIRCLED = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳';
+  const stepOf = (l: string) => {
+    const c = [...l].find((ch) => CIRCLED.includes(ch));
+    if (c) return CIRCLED.indexOf(c) + 1;
+    const m = l.match(/^\s*(\d{1,2})[.)]\s/);
+    return m ? Number(m[1]) : 999;
+  };
+  const orderedEdges = [...a.edges].sort((x, y) => stepOf(x.label) - stepOf(y.label));
+  for (const e of orderedEdges) {
+    if (isNonTrafficRelation(e.label)) {
+      skipped.push({ cellId: e.cellId, label: e.label, reason: 'Relación de configuración o ciclo de vida (no es tráfico en tiempo de ejecución)' });
+      continue;
+    }
+    let s = cellToComp.get(e.source) ?? resolveGroup(e.source, 'source', e.label);
+    let t = cellToComp.get(e.target) ?? resolveGroup(e.target, 'target', e.label);
+    const fromGroup = !cellToComp.has(e.source) || !cellToComp.has(e.target);
     if (!s || !t || s === t) {
-      skipped.push({ cellId: e.cellId, label: e.label || 'flecha', reason: 'Conecta grupos, anotaciones o figuras ignoradas' });
+      skipped.push({ cellId: e.cellId, label: e.label || 'flecha', reason: 'Conecta anotaciones, grupos vacíos o figuras ignoradas' });
       continue;
     }
     const hint = protocolFromLabel(e.label);
-    let options = compatibleProtocols(comp(s).type, comp(t).type);
-    let note: string | undefined;
+    const notes: string[] = [];
+    if (e.via) notes.push(`unida por el conector «${e.via}»`);
+    if (fromGroup) notes.push('flecha entre grupos: se usó un componente representativo');
+    // una flecha no-DNS que sale de un DNS describe el siguiente paso del cliente que lo consulta
+    if (behavior(s) === 'dns' && hint.protocol !== 'DNS') {
+      const client = a.edges.map((x) => [cellToComp.get(x.source), cellToComp.get(x.target)] as const).find(([src, dst]) => dst === s && src && behavior(src) === 'client')?.[0];
+      if (client) {
+        s = client;
+        notes.push('el paso posterior al DNS se asignó al cliente que lo consulta');
+      }
+    }
+    const PREF: Protocol[] = ['HTTPS', 'HTTP', 'JDBC', 'TCP', 'DNS', 'SFTP', 'SSH'];
+    const ranked = (x: Protocol[]) => [...x].sort((p1, p2) => PREF.indexOf(p1) - PREF.indexOf(p2));
+    let options = ranked(compatibleProtocols(comp(s).type, comp(t).type));
     if (!options.length) {
-      const rev = compatibleProtocols(comp(t).type, comp(s).type);
+      const rev = ranked(compatibleProtocols(comp(t).type, comp(s).type));
       if (rev.length) {
         [s, t] = [t, s];
         options = rev;
-        note = 'Sentido invertido para que sea técnicamente válido';
+        notes.push('sentido invertido para que sea técnicamente válido');
       }
     }
     if (!options.length) {
@@ -370,9 +481,26 @@ export function buildFromAnalysis(
     }
     let protocol = options[0]!;
     if (hint.protocol && options.includes(hint.protocol)) protocol = hint.protocol;
-    else if (hint.protocol) note = `${note ? note + '; ' : ''}el texto indica ${hint.protocol}, se usó ${protocol}`;
-    const port = hint.port && (hint.protocol === protocol || !hint.protocol) ? hint.port : (defaultPortFor(comp(t).type, protocol) ?? 443);
-    addConn(s, t, protocol, port, note);
+    else if (hint.protocol === 'TCP' && options.some((p) => p === 'HTTP' || p === 'HTTPS')) protocol = options.includes('HTTP') ? 'HTTP' : 'HTTPS';
+    else if (hint.protocol) notes.push(`el texto indica ${hint.protocol}, se usó ${protocol}`);
+    const l4Compatible = hint.protocol === protocol || !hint.protocol || (hint.protocol === 'TCP' && protocol !== 'DNS');
+    const port = hint.port && l4Compatible ? hint.port : (defaultPortFor(comp(t).type, protocol) ?? 443);
+    addConn(s, t, protocol, port, notes.length ? notes.join('; ') : undefined);
+  }
+
+  // endpoints privados sin destino: se enlazan al servicio que nombran (p. ej. "Endpoint Secrets" → Secrets Manager)
+  for (const ep of comps.filter((c) => c.type === 'network.vpc_endpoint' && !connections.some((k) => k.sourceId === c.id))) {
+    const words = [...tokens(fullLabel.get(ep.id) ?? ep.name)].filter((t) => !['endpoint', 'privatelink', 'private', 'link', 'gateway', 'interface', 'vpc', 'mgr'].includes(t));
+    const lead = (x: string) => new Set([...tokens(x)].slice(0, 3));
+    const viaGroup = a.groups.find((g) => words.some((w) => lead(g.label).has(w)));
+    const groupMembers = viaGroup ? comps.filter((c) => c.id !== ep.id && c.type !== 'network.vpc_endpoint' && inside(rects.get(c.id)!, viaGroup.rect)) : [];
+    const targets = comps.filter((c) => c.id !== ep.id && c.type !== 'network.vpc_endpoint' && words.some((w) => lead(c.name).has(w)));
+    const dests = groupMembers.length ? groupMembers : targets;
+    for (const d of dests) {
+      const p = compatibleProtocols(ep.type, d.type)[0];
+      if (p) addConn(ep.id, d.id, p, defaultPortFor(d.type, p) ?? 443, 'endpoint enlazado al servicio que expone (supuesto)');
+    }
+    if (dests.length) assumptions.push(`${ep.name} se enlazó a ${dests.map((d) => d.name).join(', ')} por coincidencia de nombre.`);
   }
 
   // layout (presentación): centro de cada figura, escalado para separar ≥ 4.8 unidades
@@ -381,15 +509,43 @@ export function buildFromAnalysis(
   const maxX = Math.max(...centers.map((p) => p.x));
   const minY = Math.min(...centers.map((p) => p.y));
   const maxY = Math.max(...centers.map((p) => p.y));
-  let dmin = Infinity;
-  for (let i = 0; i < centers.length; i++) for (let j = i + 1; j < centers.length; j++) dmin = Math.min(dmin, Math.hypot(centers[i]!.x - centers[j]!.x, centers[i]!.y - centers[j]!.y));
+  // escala robusta: mediana de la distancia al vecino más cercano (un grupo compacto no infla todo)
+  const nn = centers.map((p, i) => Math.min(...centers.map((q, j) => (i === j ? Infinity : Math.hypot(p.x - q.x, p.y - q.y)))));
+  const sorted = nn.filter(Number.isFinite).sort((x, y) => x - y);
+  const median = sorted.length ? sorted[Math.floor(sorted.length / 2)]! : 1;
   const extent = Math.max(maxX - minX, maxY - minY, 1);
-  const scale = Math.max(1e-3, Math.min(extent / 30, Number.isFinite(dmin) && dmin > 0 ? dmin / 4.8 : extent / 30));
+  const scale = Math.max(1e-3, extent / 58, median / 6.5);
   const cx = (minX + maxX) / 2;
   const cy = (minY + maxY) / 2;
-  const toWorld = (p: { x: number; y: number }): Vec3 => ({ x: Math.round(((p.x - cx) / scale) * 2) / 2, y: 0, z: Math.round(((p.y - cy) / scale) * 2) / 2 });
   const positions: Record<string, Vec3> = {};
-  comps.forEach((c, i) => (positions[c.id] = toWorld(centers[i]!)));
+  const pts = centers.map((p) => ({ x: (p.x - cx) / scale, z: (p.y - cy) / scale }));
+  // relajación determinista: separa pares a menos de 4.4 unidades (mantiene la disposición general)
+  for (let it = 0; it < 40; it++) {
+    let moved = false;
+    for (let i = 0; i < pts.length; i++) {
+      for (let j = i + 1; j < pts.length; j++) {
+        const a1 = pts[i]!;
+        const b1 = pts[j]!;
+        let dx = b1.x - a1.x;
+        let dz = b1.z - a1.z;
+        let d = Math.hypot(dx, dz);
+        if (d >= 4.4) continue;
+        if (d < 1e-6) {
+          dx = 1;
+          dz = 0;
+          d = 1;
+        }
+        const push = (4.4 - d) / 2;
+        a1.x -= (dx / d) * push;
+        a1.z -= (dz / d) * push;
+        b1.x += (dx / d) * push;
+        b1.z += (dz / d) * push;
+        moved = true;
+      }
+    }
+    if (!moved) break;
+  }
+  comps.forEach((c, i) => (positions[c.id] = { x: Math.round(pts[i]!.x * 2) / 2, y: 0, z: Math.round(pts[i]!.z * 2) / 2 }));
 
   // grupos
   const groups: Group[] = [];
@@ -445,7 +601,8 @@ export function buildFromAnalysis(
       warnings.push(`${c.name} no llega a ningún balanceador, gateway o servicio siguiendo las flechas.`);
       return;
     }
-    const host = `app${clients.length > 1 ? i + 1 : ''}.importado.example`;
+    const fromDns = dnsId ? (fullLabel.get(dnsId) ?? comp(dnsId).name).match(/\b(?:[a-z0-9-]+\.)+(?:corp|com|cl|net|org|io|local|internal|cloud|app|dev)\b/i)?.[0] : undefined;
+    const host = fromDns && clients.length === 1 ? fromDns.toLowerCase() : `app${clients.length > 1 ? i + 1 : ''}.importado.example`;
     c.props = { ...c.props, targetHost: host };
     if (!dnsId) {
       dnsId = uid('dns');
@@ -522,13 +679,14 @@ export function scenariosFor(model: ArchitectureModel): Scenario[] {
   const req = { method: 'GET' as const, path: '/', payload: { requestId: 'REQ-0001', source: 'sintético' }, auth: 'valid' as const };
   const base = { entryComponentId: client.id, request: req, intervalMs: 0, requestCount: 1, faults: [] };
   const out: Scenario[] = [{ ...base, id: 'imp-A-main', name: 'A · Flujo principal', description: 'Una solicitud recorre la arquitectura importada tal como fue dibujada.', kind: 'success' }];
-  const letters = 'BCDEFG';
+  const letters = 'BCDEFGHI';
   const push = (s: Omit<Scenario, 'id' | 'name'> & { title: string; key: string }) => {
     const l = letters[out.length - 1] ?? 'X';
     const { title, key, ...rest } = s;
     out.push({ ...rest, id: `imp-${l}-${key}`, name: `${l} · ${title}` });
   };
-  const store = model.components.find((c) => b(c) === 'datastore');
+  const called = (c: ComponentInstance) => model.connections.some((k) => k.targetId === c.id);
+  const store = model.components.find((c) => c.type.startsWith('data.') && called(c)) ?? model.components.find((c) => b(c) === 'datastore' && called(c));
   if (store) push({ ...base, key: 'store-down', title: `Caída de ${store.name}`, description: `${store.name} deja de responder: timeouts, reintentos y propagación hacia el usuario.`, kind: 'failure', requestCount: 2, intervalMs: 20000, faults: [{ kind: 'COMPONENT_DOWN', componentId: store.id }] });
   const lb = model.components.find((c) => b(c) === 'load_balancer' && model.connections.filter((k) => k.sourceId === c.id).length >= 2);
   if (lb) {
@@ -547,6 +705,10 @@ export function scenariosFor(model: ArchitectureModel): Scenario[] {
       setup: [{ op: 'update_component', componentId: fw.id, patch: { props: { rules: [{ id: 'deny-https-test', priority: 10, action: 'deny', protocol: 'HTTPS', port: 443, source: '0.0.0.0/0', description: 'Bloqueo de prueba' }, ...rules] } } }]
     });
   }
+  const vpn = model.components.find((c) => c.type === 'network.vpn' && called(c));
+  if (vpn) push({ ...base, key: 'vpn-down', title: `Caída de ${vpn.name}`, description: 'El enlace privado entre la red corporativa y la nube deja de responder.', kind: 'failure', faults: [{ kind: 'COMPONENT_DOWN', componentId: vpn.id }] });
+  const ext = model.components.find((c) => c.type === 'integration.saas_api' && called(c));
+  if (ext) push({ ...base, key: 'saas-down', title: `Caída de ${ext.name}`, description: 'Un sistema externo deja de responder: ¿la aplicación lo tolera o el error se propaga al usuario?', kind: 'failure', requestCount: 2, intervalMs: 20000, faults: [{ kind: 'COMPONENT_DOWN', componentId: ext.id }] });
   const dns = model.components.find((c) => b(c) === 'dns');
   if (dns) push({ ...base, key: 'dns-down', title: 'Falla de DNS', description: 'El DNS no responde: el cliente nunca abre la conexión.', kind: 'failure', faults: [{ kind: 'COMPONENT_DOWN', componentId: dns.id }] });
   return out;

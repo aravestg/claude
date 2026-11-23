@@ -19,6 +19,8 @@ interface Entry {
 export class LabelRegistry {
   private entries = new Map<string, Entry>();
   readonly els = new Map<string, HTMLDivElement>();
+  layer: HTMLDivElement | null = null;
+  private lod = '';
   private listeners = new Set<() => void>();
   private snapshot: [string, Entry][] = [];
   private pending = false;
@@ -47,6 +49,11 @@ export class LabelRegistry {
   list() {
     return this.entries;
   }
+  setLod(level: string) {
+    if (level === this.lod || !this.layer) return;
+    this.lod = level;
+    this.layer.dataset['lod'] = level;
+  }
 }
 
 export const LabelContext = createContext<LabelRegistry | null>(null);
@@ -66,6 +73,9 @@ export function Label({ position = [0, 0, 0], center = true, children, z = 0 }: 
 export function LabelProjector({ registry }: { registry: LabelRegistry }) {
   const v = useRef(new THREE.Vector3());
   useFrame(({ camera, size }) => {
+    // nivel de detalle: con zoom lejano se ocultan nombres y rótulos de zonas (CSS)
+    const ortho = (camera as THREE.OrthographicCamera).isOrthographicCamera;
+    registry.setLod(!ortho ? 'near' : camera.zoom < 9 ? 'far' : camera.zoom < 20 ? 'mid' : 'near');
     for (const [id, e] of registry.list()) {
       const el = registry.els.get(id);
       if (!el) continue;
@@ -87,7 +97,7 @@ export function LabelProjector({ registry }: { registry: LabelRegistry }) {
 export function LabelLayer({ registry }: { registry: LabelRegistry }) {
   const entries = useSyncExternalStore(registry.subscribe, registry.getSnapshot, registry.getSnapshot);
   return (
-    <div className="asa-label-layer" style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
+    <div className="asa-label-layer" ref={(el) => void (registry.layer = el)} style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
       {entries.map(([id, e]) => (
         <div
           key={id}

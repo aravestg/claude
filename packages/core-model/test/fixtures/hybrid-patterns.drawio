@@ -1,0 +1,49 @@
+<mxfile host="test" version="21.6.1">
+  <diagram id="hyb" name="Híbrido · patrones">
+    <mxGraphModel dx="1600" dy="800" grid="1" gridSize="10">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="corp" value="RED CORPORATIVA" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;container=1;" vertex="1" parent="1"><mxGeometry x="20" y="80" width="300" height="420" as="geometry" /></mxCell>
+        <mxCell id="users" value="Usuarios internos&lt;br&gt;QA" style="shape=mxgraph.aws4.users;html=1;" vertex="1" parent="1"><mxGeometry x="60" y="140" width="60" height="60" as="geometry" /></mxCell>
+        <mxCell id="dns" value="DNS on-prem&lt;br&gt;CNAME portal.ejemplo.corp" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.route_53;html=1;" vertex="1" parent="1"><mxGeometry x="200" y="140" width="60" height="60" as="geometry" /></mxCell>
+        <mxCell id="vpn" value="Direct Connect / VPN&lt;br&gt;HTTPS 443" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.site_to_site_vpn;html=1;" vertex="1" parent="1"><mxGeometry x="200" y="320" width="60" height="60" as="geometry" /></mxCell>
+        <mxCell id="vpc" value="VPC 10.30.0.0/16" style="shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_vpc2;container=1;html=1;" vertex="1" parent="1"><mxGeometry x="380" y="40" width="980" height="560" as="geometry" /></mxCell>
+        <mxCell id="pub" value="Subred pública" style="shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_security_group;container=1;html=1;" vertex="1" parent="1"><mxGeometry x="400" y="80" width="200" height="460" as="geometry" /></mxCell>
+        <mxCell id="alb" value="ALB interno&lt;br&gt;HTTPS 443" style="shape=mxgraph.aws4.elastic_load_balancing;html=1;" vertex="1" parent="1"><mxGeometry x="470" y="150" width="60" height="60" as="geometry" /></mxCell>
+        <mxCell id="nat" value="NAT Gateway&lt;br&gt;solo egress" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.nat_gateway;html=1;" vertex="1" parent="1"><mxGeometry x="470" y="330" width="60" height="60" as="geometry" /></mxCell>
+        <mxCell id="rt" value="Route Table&lt;br&gt;0.0.0.0/0 → NAT" style="shape=mxgraph.aws4.route_table;html=1;" vertex="1" parent="1"><mxGeometry x="470" y="450" width="40" height="40" as="geometry" /></mxCell>
+        <mxCell id="sfe" value="Subred privada — Frontend" style="shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_security_group;container=1;html=1;" vertex="1" parent="1"><mxGeometry x="640" y="80" width="200" height="200" as="geometry" /></mxCell>
+        <mxCell id="fe" value="Frontend&lt;br&gt;ECS Fargate" style="shape=mxgraph.aws4.ecs_task;html=1;" vertex="1" parent="1"><mxGeometry x="710" y="150" width="60" height="60" as="geometry" /></mxCell>
+        <mxCell id="sbe" value="Subred privada — Aplicación" style="shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_security_group;container=1;html=1;" vertex="1" parent="1"><mxGeometry x="640" y="320" width="420" height="220" as="geometry" /></mxCell>
+        <mxCell id="be" value="Backend&lt;br&gt;ECS Fargate" style="shape=mxgraph.aws4.ecs_task;html=1;" vertex="1" parent="1"><mxGeometry x="710" y="390" width="60" height="60" as="geometry" /></mxCell>
+        <mxCell id="ep" value="Endpoint&lt;br&gt;Secrets" style="shape=mxgraph.aws4.endpoints;html=1;" vertex="1" parent="1"><mxGeometry x="900" y="360" width="40" height="40" as="geometry" /></mxCell>
+        <mxCell id="pl" value="PrivateLink → Integración" style="shape=mxgraph.aws4.endpoints;html=1;" vertex="1" parent="1"><mxGeometry x="900" y="460" width="40" height="40" as="geometry" /></mxCell>
+        <mxCell id="db" value="RDS PostgreSQL&lt;br&gt;Single-AZ" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.rds;html=1;" vertex="1" parent="1"><mxGeometry x="1200" y="380" width="60" height="60" as="geometry" /></mxCell>
+        <mxCell id="kms" value="AWS KMS" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.key_management_service;html=1;" vertex="1" parent="1"><mxGeometry x="1200" y="500" width="50" height="50" as="geometry" /></mxCell>
+        <mxCell id="sec" value="Secrets Manager" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.secrets_manager;html=1;" vertex="1" parent="1"><mxGeometry x="1200" y="140" width="50" height="50" as="geometry" /></mxCell>
+        <mxCell id="refB1" value="B" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1"><mxGeometry x="1100" y="300" width="30" height="30" as="geometry" /></mxCell>
+        <mxCell id="integ" value="Plataforma de Integración (MuleSoft)" style="rounded=0;container=1;dashed=1;html=1;" vertex="1" parent="1"><mxGeometry x="1400" y="40" width="260" height="240" as="geometry" /></mxCell>
+        <mxCell id="exp" value="hr-exp-api&lt;br&gt;OAuth 2.0" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1"><mxGeometry x="1440" y="100" width="160" height="60" as="geometry" /></mxCell>
+        <mxCell id="ext" value="SISTEMAS EXTERNOS (SaaS)" style="rounded=0;container=1;dashed=1;html=1;" vertex="1" parent="1"><mxGeometry x="1400" y="320" width="260" height="300" as="geometry" /></mxCell>
+        <mxCell id="refB2" value="B" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1"><mxGeometry x="1420" y="340" width="30" height="30" as="geometry" /></mxCell>
+        <mxCell id="idp" value="Proveedor de identidad&lt;br&gt;OIDC" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1"><mxGeometry x="1480" y="380" width="150" height="50" as="geometry" /></mxCell>
+        <mxCell id="hr" value="Sistema de RR.HH.&lt;br&gt;API" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1"><mxGeometry x="1480" y="500" width="150" height="50" as="geometry" /></mxCell>
+        <mxCell id="note" value="Reglas SG: Ingress 443 desde CIDR corporativo; Egress 3000 hacia SG-Backend; ver tabla" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1"><mxGeometry x="20" y="620" width="400" height="60" as="geometry" /></mxCell>
+        <mxCell id="e1" value="1. resuelve nombre" edge="1" parent="1" source="users" target="dns"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e2" value="2. HTTPS 443" edge="1" parent="1" source="dns" target="vpn"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e3" value="① HTTPS 443 (red interna)" edge="1" parent="1" source="corp" target="sfe"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e4" value="443" edge="1" parent="1" source="alb" target="fe"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e5" value="② API REST · TCP 3000" edge="1" parent="1" source="sfe" target="sbe"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e6" value="③ TCP 5432 (PostgreSQL/TLS)" edge="1" parent="1" source="be" target="db"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e7" value="④ GetSecret 443" edge="1" parent="1" source="be" target="ep"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e8" value="⑤ via PrivateLink" edge="1" parent="1" source="be" target="pl"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e9" value="" edge="1" parent="1" source="be" target="refB1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e10" value="OIDC 443" edge="1" parent="1" source="refB2" target="idp"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e11" value="cifra" edge="1" parent="1" source="db" target="kms"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e12" value="HTTPS 443" edge="1" parent="1" source="exp" target="hr"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e13" value="Pull image (deploy)" edge="1" parent="1" source="be" target="sec"><mxGeometry relative="1" as="geometry" /></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
