@@ -2,7 +2,8 @@
  * 3D Visualization Engine. Recibe el modelo (topología y layout) y un SceneState derivado de
  * eventos de simulación. NO evalúa reglas: sólo dibuja lo que los eventos dicen que pasó.
  */
-import { Grid, Html, Line, OrbitControls } from '@react-three/drei';
+import { Grid, Line, OrbitControls } from '@react-three/drei';
+import { Label, LabelContext, LabelLayer, LabelProjector, LabelRegistry } from './labels';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import type { ThreeEvent } from '@react-three/fiber';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -39,7 +40,10 @@ const ORIGIN: Vec3 = { x: 0, y: 0, z: 0 };
 export function ArchitectureCanvas(props: ArchitectureCanvasProps) {
   const ill = props.visualStyle === 'illustrated';
   const bg = props.theme === 'dark' ? (ill ? '#16140f' : '#0b1120') : ill ? '#f6efe5' : '#eef2f7';
+  const registry = useMemo(() => new LabelRegistry(), []);
   return (
+    <LabelContext.Provider value={registry}>
+    <div className="asa-stage" style={{ position: 'relative', width: '100%', height: '100%' }}>
     <Canvas
       key={props.visualStyle}
       orthographic={ill}
@@ -66,7 +70,11 @@ export function ArchitectureCanvas(props: ArchitectureCanvasProps) {
         shadow-camera-bottom={-30}
       />
       <SceneContent {...props} />
+      <LabelProjector registry={registry} />
     </Canvas>
+    <LabelLayer registry={registry} />
+    </div>
+    </LabelContext.Provider>
   );
 }
 
@@ -312,13 +320,13 @@ function ComponentNode(p: {
           opacity={lit || p.selected || hover ? 0.95 : 0.6}
         />
       </mesh>
-      <Html position={[0, 2.35, 0]} center distanceFactor={20} zIndexRange={[10, 0]} style={{ pointerEvents: 'none' }}>
+      <Label position={[0, 2.35, 0]} center distanceFactor={20} zIndexRange={[10, 0]} style={{ pointerEvents: 'none' }}>
         <div className={`asa-label asa-label--${p.status}${p.selected ? ' asa-label--selected' : ''}`} data-component-label={p.id}>
           <div className="asa-label__name">{p.name}</div>
           <div className="asa-label__type">{def?.label ?? p.type}</div>
           {(p.badge || STATUS_LABEL[p.status]) && <div className="asa-label__status">{p.badge ?? STATUS_LABEL[p.status]}</div>}
         </div>
-      </Html>
+      </Label>
       </>
       )}
     </group>
@@ -373,12 +381,12 @@ function ConnectionView(p: {
           p.onSelect();
         }}
       />
-      <Html position={[mid.x, mid.y + 0.25, mid.z]} center distanceFactor={18} zIndexRange={[5, 0]} style={{ pointerEvents: 'none' }}>
+      <Label position={[mid.x, mid.y + 0.25, mid.z]} center distanceFactor={18} zIndexRange={[5, 0]} style={{ pointerEvents: 'none' }}>
         <div className={`asa-conn-label${p.status ? ` asa-conn-label--${p.status}` : ''}`}>
           {p.conn.protocol}:{p.conn.port}
           {p.conn.props.encrypted ? ' 🔒' : ''}
         </div>
-      </Html>
+      </Label>
     </group>
   );
 }
@@ -404,9 +412,9 @@ function PacketView(p: { conn: Connection; from: Vec3; to: Vec3; lane: number; p
           <meshBasicMaterial color={color} transparent opacity={0.5 - i * 0.14} />
         </mesh>
       ))}
-      <Html position={[head.x, head.y + 0.55, head.z]} center distanceFactor={18} zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
+      <Label position={[head.x, head.y + 0.55, head.z]} center distanceFactor={18} zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
         <div className={`asa-packet-label asa-packet-label--${p.packet.variant}`}>{p.packet.label || p.packet.variant}</div>
-      </Html>
+      </Label>
     </group>
   );
 }
@@ -444,12 +452,12 @@ function GroupBox(p: { group: Group; model: ArchitectureModel; pos: (id: string)
       <lineSegments geometry={edges} raycast={() => null}>
         <lineBasicMaterial color={color} transparent opacity={0.55} />
       </lineSegments>
-      <Html position={[-w / 2 + 0.2, h / 2, -depth / 2]} distanceFactor={24} zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
+      <Label position={[-w / 2 + 0.2, h / 2, -depth / 2]} distanceFactor={24} zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
         <div className="asa-group-label" style={{ borderColor: color, color }}>
           {p.group.name}
           {p.group.props.cidr ? ` · ${p.group.props.cidr}` : ''}
         </div>
-      </Html>
+      </Label>
     </group>
   );
 }

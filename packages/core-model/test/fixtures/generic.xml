@@ -1,0 +1,12 @@
+<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>
+<mxCell id="u" value="Cliente web" style="shape=umlActor;verticalLabelPosition=bottom;html=1;" vertex="1" parent="1"><mxGeometry x="20" y="200" width="30" height="60" as="geometry"/></mxCell>
+<mxCell id="net" value="Internet" style="ellipse;shape=cloud;whiteSpace=wrap;html=1;" vertex="1" parent="1"><mxGeometry x="140" y="190" width="120" height="80" as="geometry"/></mxCell>
+<mxCell id="gw" value="API Gateway" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1"><mxGeometry x="320" y="200" width="120" height="60" as="geometry"/></mxCell>
+<mxCell id="svc" value="Servicio de pedidos" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1"><mxGeometry x="500" y="200" width="120" height="60" as="geometry"/></mxCell>
+<mxCell id="db" value="Pedidos" style="shape=cylinder3;whiteSpace=wrap;html=1;" vertex="1" parent="1"><mxGeometry x="680" y="190" width="70" height="80" as="geometry"/></mxCell>
+<mxCell id="box" value="" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1"><mxGeometry x="900" y="10" width="20" height="20" as="geometry"/></mxCell>
+<mxCell id="a1" style="html=1;" edge="1" parent="1" source="u" target="net"><mxGeometry relative="1" as="geometry"/></mxCell>
+<mxCell id="a2" value="REST" style="html=1;" edge="1" parent="1" source="net" target="gw"><mxGeometry relative="1" as="geometry"/></mxCell>
+<mxCell id="a3" style="html=1;" edge="1" parent="1" source="gw" target="svc"><mxGeometry relative="1" as="geometry"/></mxCell>
+<mxCell id="a4" value="consulta" style="html=1;" edge="1" parent="1" source="db" target="svc"><mxGeometry relative="1" as="geometry"/></mxCell>
+</root></mxGraphModel>

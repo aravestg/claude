@@ -3,7 +3,8 @@
  * contorno de tinta, cilindros, plataformas con multitudes, líneas finas y puntos de color que
  * viajan. Sólo presentación: textos y estados provienen de los eventos de simulación.
  */
-import { Edges, Html, Line, RoundedBox } from '@react-three/drei';
+import { Edges, Line, RoundedBox } from '@react-three/drei';
+import { Label } from './labels';
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 import * as THREE from 'three';
@@ -242,26 +243,28 @@ export function IllustratedBody({ shape, status, selected, theme }: { shape: Sha
 
 /** Ícono y nombre "impresos" sobre la ficha (alineados a pantalla, como en la referencia). */
 export function FaceLabel({ shape, name, id, status, theme }: { shape: ShapeKind; name: string; id: string; status: VisualStatus; theme: 'dark' | 'light' }) {
-  const clean = name.replace(/\s*\(.*\)\s*/, ' ').trim();
+  // en la ficha: quita paréntesis descriptivos largos ("(RDS PostgreSQL)") pero conserva los cortos ("(a)")
+  const short = name.length > 16 ? name.replace(/\s*\([^)]{5,}\)\s*/g, ' ').trim() : name;
+  const clean = short.length > 22 ? `${short.slice(0, 21)}…` : short;
   const words = clean.length > 8 ? clean.split(/\s+/) : [clean];
   return (
-    <Html position={[0, topOf(shape) + 0.02, 0]} center zIndexRange={[12, 0]} style={{ pointerEvents: 'none' }}>
+    <Label position={[-0.32, topOf(shape) + 0.02, -0.32]} center zIndexRange={[12, 0]} style={{ pointerEvents: 'none' }}>
       <div className={`ill-face ill-face--${theme} ill-face--${status}`} data-component-label={id} style={{ ['--halo' as string]: faceColor(shape, status) }}>
         <Icon shape={shape} size={22} />
         <span>{words.length > 2 ? `${words[0]}\n${words.slice(1).join(' ')}` : words.join('\n')}</span>
       </div>
-    </Html>
+    </Label>
   );
 }
 
 export function NamePill({ shape, name, id, selected, connectSource, theme }: { shape: ShapeKind; name: string; id: string; selected: boolean; connectSource: boolean; theme: 'dark' | 'light' }) {
   return (
-    <Html position={[0, 0, 2.15]} center zIndexRange={[12, 0]} style={{ pointerEvents: 'none' }}>
+    <Label position={[0, 0, 2.15]} center zIndexRange={[12, 0]} style={{ pointerEvents: 'none' }}>
       <div className={`ill-pill ill-pill--${theme}${selected ? ' ill-pill--selected' : ''}${connectSource ? ' ill-pill--source' : ''}`} data-component-label={id}>
         <Icon shape={shape} size={14} />
         <span>{name}</span>
       </div>
-    </Html>
+    </Label>
   );
 }
 
@@ -269,11 +272,11 @@ export function StatusBadge({ shape, status, badge }: { shape: ShapeKind; status
   const text = badge ?? (status === 'down' ? '✕ Caído' : status === 'error' ? '✕ Error' : status === 'waiting' ? '⏳ Esperando' : undefined);
   if (!text) return null;
   return (
-    <Html position={[0, topOf(shape) + 0.9, 0]} center zIndexRange={[14, 0]} style={{ pointerEvents: 'none' }}>
+    <Label position={[0, topOf(shape) + 0.9, 0]} center zIndexRange={[14, 0]} style={{ pointerEvents: 'none' }}>
       <div className={`ill-badge ill-badge--${status}`} data-status-badge>
         {text}
       </div>
-    </Html>
+    </Label>
   );
 }
 
@@ -308,12 +311,12 @@ export function IllustratedConnection(p: { conn: Connection; from: Vec3; to: Vec
         <boxGeometry args={[0.7, 0.6, len]} />
       </mesh>
       {p.selected && (
-        <Html position={[mid.x, 0.6, mid.z]} center zIndexRange={[16, 0]} style={{ pointerEvents: 'none' }}>
+        <Label position={[mid.x, 0.6, mid.z]} center zIndexRange={[16, 0]} style={{ pointerEvents: 'none' }}>
           <div className="ill-note">
             {p.conn.protocol}:{p.conn.port}
             {p.conn.props.encrypted ? ' · TLS' : ' · sin cifrado'}
           </div>
-        </Html>
+        </Label>
       )}
     </group>
   );
@@ -355,11 +358,11 @@ export function IllustratedPacket({ conn, from, to, lane, packet, theme }: { con
           <sphereGeometry args={[0.17, 18, 12]} />
         </Inked>
       )}
-      <Html position={[notePos.x, 0.6, notePos.z]} center zIndexRange={[30, 0]} style={{ pointerEvents: 'none' }}>
+      <Label position={[notePos.x, 0.6, notePos.z]} center zIndexRange={[30, 0]} style={{ pointerEvents: 'none' }}>
         <div className={`ill-note ill-note--${packet.variant}`} data-testid="packet-caption">
           {packet.caption}
         </div>
-      </Html>
+      </Label>
     </group>
   );
 }
@@ -380,12 +383,12 @@ export function IllustratedZone({ group, min, max, pad, theme }: { group: Group;
       </mesh>
       <Line points={pts} color={color} lineWidth={1.4} dashed dashSize={0.35} gapSize={0.25} />
       {!group.parentId && (
-      <Html position={[x0, 0.05, z0]} zIndexRange={[2, 0]} style={{ pointerEvents: 'none' }}>
+      <Label position={[x0, 0.05, z0]} zIndexRange={[2, 0]} style={{ pointerEvents: 'none' }}>
         <div className="ill-zone">
           {group.name}
           {group.props.cidr ? ` · ${group.props.cidr}` : ''}
         </div>
-      </Html>
+      </Label>
       )}
     </group>
   );

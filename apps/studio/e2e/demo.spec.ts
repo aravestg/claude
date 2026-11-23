@@ -107,3 +107,31 @@ test('árbol de escenarios y modo Diseñar', async ({ page }) => {
   await expect(page.getByRole('tab', { name: 'Inspector' })).toBeVisible();
   await expect(page.getByRole('tab', { name: 'Validación' })).toBeVisible();
 });
+
+test('importar un diagrama draw.io (AWS) → revisar → abrir en 3D → simular', async ({ page }) => {
+  await page.getByTestId('open-import').click();
+  await page.getByTestId('import-file').setInputFiles('../../packages/core-model/test/fixtures/aws-three-tier.drawio');
+  const dialog = page.getByTestId('import-dialog');
+  await expect(dialog).toContainText('Application Load Balancer');
+  await expect(dialog).toContainText('alta · estilo');
+  // corregir un tipo antes de importar
+  await dialog.getByLabel('Tipo para Documentos').selectOption('data.nosql');
+  await expect(dialog).toContainText('corregido');
+  await page.getByTestId('import-confirm').click();
+  await expect(dialog).toContainText('Supuestos registrados');
+  await page.getByTestId('import-simulate').click();
+  await expect(page.getByTestId('lesson-title')).toContainText('Flujo principal');
+  const timeline = page.getByTestId('timeline');
+  await expect(page.getByTestId('sim-status')).toContainText('evento');
+  await timeline.fill((await timeline.getAttribute('max'))!);
+  await expect(page.getByTestId('sim-status')).toContainText('Éxito');
+  await expect(page.locator('[data-component-label]').filter({ hasText: 'Orders' }).first()).toBeVisible();
+  // los escenarios generados aparecen en el árbol
+  await expect(page.getByRole('button', { name: /Bloqueo en AWS WAF/ })).toBeVisible();
+});
+
+test('importar rechaza archivos no válidos sin romper la app', async ({ page }) => {
+  await page.getByTestId('open-import').click();
+  await page.getByTestId('import-file').setInputFiles({ name: 'malo.drawio', mimeType: 'application/xml', buffer: Buffer.from('<!DOCTYPE x [<!ENTITY a "b">]><mxfile/>') });
+  await expect(page.getByTestId('import-dialog')).toContainText('DTD');
+});

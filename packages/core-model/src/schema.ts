@@ -5,7 +5,7 @@
 import { z } from 'zod';
 import { PROTOCOLS, SCHEMA_VERSION } from './types';
 import type { ArchitectureModel } from './types';
-import type { ModelOperation } from './contracts';
+import type { ModelOperation, Scenario } from './contracts';
 
 const id = z
   .string()
@@ -92,4 +92,35 @@ export function parseModel(input: unknown): ParseResult<ArchitectureModel> {
 export function parseOperations(input: unknown): ParseResult<ModelOperation[]> {
   const r = z.array(operationSchema).max(500).safeParse(input);
   return r.success ? { ok: true, value: r.data as ModelOperation[] } : { ok: false, errors: fmt(r.error) };
+}
+
+const faultSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('COMPONENT_DOWN'), componentId: id, fromT: z.number().min(0).optional(), untilT: z.number().min(0).optional() }),
+  z.object({ kind: z.literal('HTTP_ERROR'), componentId: id, status: z.union([z.literal(401), z.literal(403), z.literal(404), z.literal(429), z.literal(500), z.literal(503)]) }),
+  z.object({ kind: z.literal('POOL_EXHAUSTED'), componentId: id }),
+  z.object({ kind: z.literal('EXTRA_LATENCY'), connectionId: id, extraMs: z.number().min(0).max(600000) })
+]);
+
+export const scenarioSchema = z.object({
+  id,
+  name: text(160),
+  description: text(2000),
+  kind: z.enum(['success', 'block', 'failure', 'resilience', 'custom']),
+  entryComponentId: id,
+  request: z.object({
+    method: z.enum(['GET', 'POST', 'PUT', 'DELETE']),
+    path: text(500),
+    payload: z.record(z.string(), jsonValue),
+    auth: z.enum(['valid', 'missing', 'invalid'])
+  }),
+  requestCount: z.number().int().min(1).max(50),
+  intervalMs: z.number().min(0).max(3600000),
+  faults: z.array(faultSchema).max(50),
+  setup: z.array(operationSchema).max(100).optional(),
+  expectation: z.object({ outcome: z.enum(['success', 'failure', 'partial']) }).optional()
+});
+
+export function parseScenarios(input: unknown): ParseResult<Scenario[]> {
+  const r = z.array(scenarioSchema).max(50).safeParse(input);
+  return r.success ? { ok: true, value: r.data as Scenario[] } : { ok: false, errors: fmt(r.error) };
 }

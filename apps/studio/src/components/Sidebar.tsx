@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { TEMPLATES } from '@asa/core-model';
-import { useStudio } from '../store';
+import { IMPORTED, useStudio } from '../store';
 import { Catalog } from './Catalog';
 
 const FOLDER = ['#e3a36b', '#5fae57', '#8a6fd6', '#e47f4f', '#2f86ce', '#2a9d8f'];
@@ -67,6 +67,35 @@ export function Sidebar() {
             );
           })}
         </ul>
+        {s.templateId === IMPORTED && (
+          <ul className="tree">
+            <li>
+              <div className="tree__folder tree__folder--static">
+                <span className="chev">⌄</span>
+                <Folder color="#c9b6ee" />
+                <span className="tree__name">Importado: {s.model.name}</span>
+                <span className="muted">{s.scenarios.filter((x) => s.progress_[`${IMPORTED}:${x.id}`]).length}/{s.scenarios.length}</span>
+              </div>
+              <ul className="tree__items">
+                {s.scenarios.map((x) => {
+                  const res = s.progress_[`${IMPORTED}:${x.id}`];
+                  return (
+                    <li key={x.id}>
+                      <button className={`tree__item${x.id === s.scenarioId ? ' on' : ''}`} onClick={() => s.openScenario(IMPORTED, x.id)} title={x.description}>
+                        <Doc />
+                        <span>{x.name.replace(/^[A-Z] · /, '')}</span>
+                        {res && <span className={`dot dot--${res}`} />}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </li>
+          </ul>
+        )}
+        <button className="tree__import" onClick={() => s.openImport()}>
+          + Importar diagrama draw.io
+        </button>
         <details className="sidebar__catalog" open={s.mode === 'design'}>
           <summary>
             <Folder color="#cfe3b2" /> Componentes

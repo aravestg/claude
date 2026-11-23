@@ -5,7 +5,7 @@
  */
 import { create } from 'zustand';
 import type { ArchitectureModel, ChangeProposal, ModelOperation, Recommendation, Scenario, SimulationResult } from '@asa/core-model';
-import { applyOperations, applyProposal, createProposal, decideProposal, getTemplate, parseModel, TEMPLATES } from '@asa/core-model';
+import { applyOperations, applyProposal, createProposal, decideProposal, getTemplate, parseModel, scenariosFor, TEMPLATES } from '@asa/core-model';
 import type { CameraRequest, CameraViewName, LayerKey, Selection, Tool, VisualStyle } from '@asa/visualization-3d';
 import { advancePlayhead } from '@asa/visualization-3d';
 import { loadCurrent, saveCurrent } from './persistence';
@@ -14,6 +14,7 @@ import { runSimulation } from './sim/client';
 
 export type RightTab = 'step' | 'events' | 'recommendations' | 'inspector' | 'learn' | 'validation';
 export type Mode = 'simulate' | 'design';
+export const IMPORTED = 'imported';
 export type RecDecision = 'accepted' | 'rejected' | 'postponed';
 
 export interface RunSummary {
@@ -61,12 +62,15 @@ interface StudioState {
   speed: number;
   pendingProposal: ChangeProposal | null;
   toast: { kind: 'info' | 'error' | 'success'; text: string; id: number } | null;
+  importOpen: boolean;
+  importFile: File | null;
 
   apply: (ops: ModelOperation[], label?: string) => boolean;
   undo: () => void;
   redo: () => void;
   loadTemplate: (id: string) => void;
-  loadModel: (model: ArchitectureModel, templateId: string, label: string) => void;
+  loadModel: (model: ArchitectureModel, templateId: string, label: string, scenarios?: Scenario[]) => void;
+  openImport: (file?: File | null) => void;
   importJson: (text: string) => void;
   setScenario: (id: string) => void;
   openScenario: (templateId: string, scenarioId: string) => void;
@@ -95,11 +99,15 @@ interface StudioState {
 
 const MAX_HISTORY = 100;
 
-function initial(): { templateId: string; model: ArchitectureModel } {
+function initial(): { templateId: string; model: ArchitectureModel; scenarios: Scenario[] } {
   const saved = typeof localStorage !== 'undefined' ? loadCurrent() : null;
-  if (saved && TEMPLATES.some((t) => t.id === saved.templateId)) return saved;
-  return { templateId: 'demo-three-tier', model: getTemplate('demo-three-tier').model() };
+  if (saved && saved.templateId === IMPORTED && saved.scenarios) return { templateId: IMPORTED, model: saved.model, scenarios: saved.scenarios };
+  if (saved && TEMPLATES.some((t) => t.id === saved.templateId)) return { ...saved, scenarios: getTemplate(saved.templateId).scenarios() };
+  return { templateId: 'demo-three-tier', model: getTemplate('demo-three-tier').model(), scenarios: getTemplate('demo-three-tier').scenarios() };
 }
+
+const persist = (s: { templateId: string; model: ArchitectureModel; scenarios: Scenario[] }) =>
+  saveCurrent(s.templateId, s.model, s.templateId === IMPORTED ? s.scenarios : undefined);
 
 function summarize(label: string, r: SimulationResult): RunSummary {
   const roots = r.requests
@@ -126,8 +134,8 @@ export const useStudio = create<StudioState>((set, get) => ({
   model: init.model,
   past: [],
   future: [],
-  scenarios: getTemplate(init.templateId).scenarios(),
-  scenarioId: getTemplate(init.templateId).scenarios()[0]!.id,
+  scenarios: init.scenarios,
+  scenarioId: init.scenarios[0]?.id ?? '',
   selection: null,
   tool: 'select',
   connectFrom: null,
@@ -154,6 +162,8 @@ export const useStudio = create<StudioState>((set, get) => ({
   speed: 1,
   pendingProposal: null,
   toast: null,
+  importOpen: false,
+  importFile: null,
 
   apply: (ops, label) => {
     const { model, past } = get();
@@ -165,7 +175,7 @@ export const useStudio = create<StudioState>((set, get) => ({
     const sel = get().selection;
     const stillThere = !sel || (sel.kind === 'component' ? r.model.components.some((c) => c.id === sel.id) : r.model.connections.some((k) => k.id === sel.id));
     set({ model: r.model, past: [...past, model].slice(-MAX_HISTORY), future: [], selection: stillThere ? sel : null });
-    saveCurrent(get().templateId, r.model);
+    persist({ ...get(), model: r.model });
     if (label) get().notify('success', label);
     return true;
   },
@@ -174,28 +184,31 @@ export const useStudio = create<StudioState>((set, get) => ({
     const prev = past[past.length - 1];
     if (!prev) return;
     set({ model: prev, past: past.slice(0, -1), future: [model, ...future] });
-    saveCurrent(get().templateId, prev);
+    persist({ ...get(), model: prev });
   },
   redo: () => {
     const { past, model, future } = get();
     const next = future[0];
     if (!next) return;
     set({ model: next, past: [...past, model], future: future.slice(1) });
-    saveCurrent(get().templateId, next);
+    persist({ ...get(), model: next });
   },
   loadTemplate: (id) => {
     const t = getTemplate(id);
     get().loadModel(t.model(), id, `Plantilla cargada: ${t.name}`);
   },
-  loadModel: (model, templateId, label) => {
-    const scenarios = getTemplate(templateId).scenarios();
+  openImport: (file = null) => set({ importOpen: true, importFile: file }),
+  loadModel: (model, templateId, label, provided) => {
+    const scenarios = templateId === IMPORTED ? (provided ?? []) : getTemplate(templateId).scenarios();
     set({
       model,
       templateId,
       past: [...get().past, get().model].slice(-MAX_HISTORY),
       future: [],
       scenarios,
-      scenarioId: scenarios[0]!.id,
+      scenarioId: scenarios[0]?.id ?? '',
+      mode: 'simulate',
+      rightTab: 'step',
       selection: null,
       result: null,
       recommendations: [],
@@ -206,7 +219,7 @@ export const useStudio = create<StudioState>((set, get) => ({
       playing: false,
       camera: { view: 'perspective', nonce: get().camera.nonce + 1 }
     });
-    saveCurrent(templateId, model);
+    persist({ templateId, model, scenarios });
     get().notify('info', label);
   },
   importJson: (text) => {
@@ -223,12 +236,13 @@ export const useStudio = create<StudioState>((set, get) => ({
       get().notify('error', `Modelo inválido: ${parsed.errors[0]}`);
       return;
     }
-    const tpl = TEMPLATES.find((t) => t.id === parsed.value.id)?.id ?? get().templateId;
-    get().loadModel(parsed.value, tpl, `Modelo importado: ${parsed.value.name}`);
+    const tpl = TEMPLATES.find((t) => t.id === parsed.value.id)?.id;
+    if (tpl) get().loadModel(parsed.value, tpl, `Modelo importado: ${parsed.value.name}`);
+    else get().loadModel(parsed.value, IMPORTED, `Modelo importado: ${parsed.value.name}`, scenariosFor(parsed.value));
   },
   setScenario: (id) => set({ scenarioId: id, playing: false, result: null, cursor: -1, progress: 0 }),
   openScenario: (templateId, scenarioId) => {
-    if (templateId !== get().templateId) {
+    if (templateId !== get().templateId && templateId !== IMPORTED) {
       if (get().past.length && !confirm('¿Cambiar de plantilla? Los cambios quedan en el historial (Ctrl+Z).')) return;
       get().loadTemplate(templateId);
     }
@@ -337,7 +351,7 @@ export const useStudio = create<StudioState>((set, get) => ({
       return;
     }
     set({ model: r.model, past: [...past, model].slice(-MAX_HISTORY), future: [], pendingProposal: null });
-    saveCurrent(get().templateId, r.model);
+    persist({ ...get(), model: r.model });
     get().notify('success', `Aplicado: ${p.title}. Vuelva a simular para comprobar el efecto.`);
   },
   decideRecommendation: (id, d) => set({ recDecisions: { ...get().recDecisions, [id]: d } }),

@@ -371,5 +371,41 @@ export const DEFINITIONS: ComponentDefinition[] = [
       basic: 'Guarda datos como un diccionario gigante: clave → valor.',
       advanced: 'Es multi-AZ por diseño en servicios gestionados; las fallas típicas son de autorización (403) o throttling (400/429), no de red.'
     }
+  },
+  {
+    type: 'data.object_storage',
+    label: 'Almacenamiento de objetos',
+    category: 'data',
+    layer: 'data',
+    provider: 'generic',
+    technology: 'Object storage (S3 compatible)',
+    behavior: 'datastore',
+    shape: 'bucket',
+    description: 'Almacenamiento de archivos y objetos accedido por API HTTPS.',
+    inbound: [{ protocol: 'HTTPS', port: 443 }],
+    outboundProtocols: [],
+    defaultProps: {
+      engine: 'Object storage',
+      queryMs: 20,
+      multiAz: true,
+      failoverMs: 0,
+      securityGroup: noopSg,
+      requiresIam: false,
+      requiredAction: 's3:GetObject'
+    },
+    equivalents: { aws: 'Amazon S3', azure: 'Blob Storage', gcp: 'Cloud Storage', onprem: 'MinIO' },
+    learn: {
+      what: 'Almacén de archivos (objetos) con alta durabilidad.',
+      when: 'Documentos, imágenes, respaldos, datos estáticos.',
+      avoid: 'Datos con actualizaciones parciales frecuentes o consultas transaccionales.',
+      communicates: 'API HTTPS (PUT/GET de objetos), firmada con credenciales.',
+      needs: 'Política de acceso (bucket policy / IAM) y cifrado.',
+      alternatives: ['Amazon S3', 'Azure Blob Storage', 'Google Cloud Storage'],
+      costs: 'Por GB almacenado, solicitudes y transferencia de salida.',
+      risks: ['Buckets públicos por error', 'Costos de egreso'],
+      bestPractices: ['Bloquear acceso público', 'Cifrado por defecto', 'Ciclo de vida de objetos'],
+      basic: 'Un gran disco en la nube para guardar archivos.',
+      advanced: 'Consistencia fuerte de lectura tras escritura en los servicios modernos; la latencia es mayor que la de una base de datos.'
+    }
   }
 ];

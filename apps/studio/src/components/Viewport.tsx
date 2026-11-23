@@ -43,6 +43,7 @@ export function Viewport() {
   return (
     <section className="viewport" aria-label="Escena 3D" data-testid="scene">
       <ArchitectureCanvas
+        key={s.model.id}
         model={s.model}
         sceneState={sceneState}
         selection={s.selection}

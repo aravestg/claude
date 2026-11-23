@@ -1,6 +1,7 @@
 /** Tarjeta central: encabezado del escenario, métricas, escena 3D y stepper. */
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { TEMPLATES } from '@asa/core-model';
+import { isDrawioName } from '../drawio';
 import { chaptersOf, currentChapter, KIND_LABEL } from '../lesson';
 import { useStudio } from '../store';
 import { ICONS, Svg } from './TopNav';
@@ -12,6 +13,7 @@ export function Stage() {
   const scenario = s.scenarios[idx];
   const tpl = TEMPLATES.find((t) => t.id === s.templateId);
   const kind = KIND_LABEL[scenario?.kind ?? 'custom']!;
+  const [dragging, setDragging] = useState(false);
   const events = s.result?.events ?? [];
   const kpi = useMemo(() => {
     const played = events.slice(0, Math.max(0, s.cursor + 1));
@@ -26,24 +28,40 @@ export function Stage() {
       http: lastHttp
     };
   }, [events, s.cursor, s.result, scenario]);
-  if (!scenario) return null;
 
   return (
     <main className="stage">
-      <section className="card stage__card">
+      <section
+        className={`card stage__card${dragging ? ' stage__card--drop' : ''}`}
+        onDragOver={(e) => {
+          if ([...e.dataTransfer.items].some((i) => i.kind === 'file')) {
+            e.preventDefault();
+            setDragging(true);
+          }
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => {
+          const f = e.dataTransfer.files[0];
+          setDragging(false);
+          if (!f) return;
+          e.preventDefault();
+          if (isDrawioName(f.name)) s.openImport(f);
+          else s.notify('error', 'Suelte un archivo .drawio, .xml o .drawio.svg.');
+        }}
+      >
         <header className="stage__head">
           <div>
             <div className="crumb">
-              {tpl?.name} <span>/</span> Escenario {idx + 1} de {s.scenarios.length}
+              {tpl?.name ?? (s.templateId === 'imported' ? 'Importado desde draw.io' : '')} <span>/</span> {scenario ? `Escenario ${idx + 1} de ${s.scenarios.length}` : s.model.name}
             </div>
             <h1 className="title" data-testid="lesson-title">
-              {scenario.name.replace(/^[A-Z] · /, '')}
+              {scenario ? scenario.name.replace(/^[A-Z] · /, '') : s.model.name}
             </h1>
-            <p className="subtitle">{scenario.description}</p>
+            <p className="subtitle">{scenario ? scenario.description : 'Este modelo no tiene un punto de entrada simulable todavía: agregue un usuario y conexiones en el modo Diseñar.'}</p>
           </div>
           <div className="chips">
             <span className="chip chip--amber">
-              <Svg d={ICONS.clock} size={13} /> {scenario.requestCount} solicitud{scenario.requestCount > 1 ? 'es' : ''}
+              <Svg d={ICONS.clock} size={13} /> {scenario?.requestCount ?? 0} solicitud{(scenario?.requestCount ?? 0) === 1 ? '' : 'es'}
             </span>
             <span className={`chip chip--${kind.tone}`}>{kind.label}</span>
             <span className="chip chip--violet">≡ {events.length || '—'} pasos</span>
@@ -70,12 +88,12 @@ export function Stage() {
             <Metric label="Última HTTP" value={kpi.http !== undefined ? String(kpi.http) : '—'} tone={kpi.http === undefined ? '' : Number(kpi.http) >= 400 ? 'red' : 'green'} icon="↩" />
           </div>
           <div className="stage__actions">
-            {scenario.setup?.length ? (
+            {scenario?.setup?.length ? (
               <button className="pop pop--amber" onClick={s.prepareScenario} title="Aplica al modelo la configuración del escenario (con confirmación)">
                 Aplicar configuración
               </button>
             ) : null}
-            <button className="pop pop--green" onClick={() => void s.simulate()} disabled={s.running} data-testid="run-simulation">
+            <button className="pop pop--green" onClick={() => void s.simulate()} disabled={s.running || !scenario} data-testid="run-simulation">
               <Svg d={ICONS.play} size={13} /> {s.running ? 'Simulando…' : 'Simular'}
             </button>
             <button className="pop" onClick={s.restart} disabled={!s.result} title="Repetir desde el inicio (R)">

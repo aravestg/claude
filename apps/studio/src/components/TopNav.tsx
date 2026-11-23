@@ -10,6 +10,7 @@ const I = {
   pencil: 'M4 20h4l11-11l-4-4L4 16z',
   pulse: 'M3 12h4l3-7l4 14l3-7h4',
   down: 'M12 4v12 M6 11l6 6l6-6 M5 20h14',
+  up: 'M12 16V4 M6 9l6-6l6 6 M5 20h14',
   save: 'M5 4h11l3 3v13H5z M8 4v5h7V4 M8 20v-6h8v6',
   undo: 'M9 14L4 9l5-5 M4 9h10a6 6 0 0 1 0 12h-3',
   redo: 'M15 14l5-5l-5-5 M20 9H10a6 6 0 0 0 0 12h3',
@@ -62,6 +63,9 @@ export function TopNav() {
         </button>
       </nav>
       <div className="navtools">
+        <button className="pop pop--violet" onClick={() => s.openImport()} data-testid="open-import" title="Convertir un diagrama de draw.io en un modelo 3D simulable">
+          <Svg d={I.up} /> Importar draw.io
+        </button>
         <button className="tool" onClick={s.undo} disabled={!s.past.length} title="Deshacer (Ctrl+Z)" aria-label="Deshacer">
           <Svg d={I.undo} />
         </button>
@@ -121,8 +125,11 @@ export function TopNav() {
                 PNG de la vista 3D<small>Captura estática</small>
               </button>
               <hr />
+              <button role="menuitem" onClick={() => (setMenu(null), s.openImport())}>
+                Importar diagrama draw.io…<small>.drawio · .xml · .drawio.svg</small>
+              </button>
               <button role="menuitem" onClick={() => fileRef.current?.click()}>
-                Importar modelo JSON…
+                Importar modelo JSON…<small>Exportado desde esta app</small>
               </button>
             </div>
           )}

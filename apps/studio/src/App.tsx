@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { ImportDialog } from './components/ImportDialog';
 import { ProposalDialog } from './components/ProposalDialog';
 import { RightPanel } from './components/RightPanel';
 import { Sidebar } from './components/Sidebar';
@@ -72,6 +73,7 @@ export function App() {
       <Stage />
       <RightPanel />
       <ProposalDialog />
+      <ImportDialog />
       {toast && (
         <div className={`toast toast--${toast.kind}`} role={toast.kind === 'error' ? 'alert' : 'status'}>
           {toast.text}

@@ -210,6 +210,7 @@ input, select { background: var(--paper-2); border: 1px solid var(--line-strong)
 .pop:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
 .pop--green { background: var(--green); }
 .pop--amber { background: var(--amber); }
+.pop--violet { background: var(--violet); }
 .pop--grow { flex: 1; justify-content: space-between; min-width: 0; }
 .pop--grow span:first-child { overflow: hidden; text-overflow: ellipsis; }
 .canvas-tools { position: absolute; right: 12px; top: 60px; z-index: 5; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; max-width: 360px; }
@@ -355,7 +356,7 @@ h4 { margin: 14px 0 6px; font-size: 11px; text-transform: uppercase; letter-spac
 .toast--error { background: var(--rose); } .toast--success { background: var(--green-tile); }
 
 /* ---------- etiquetas de la escena (estilo ilustrado) ---------- */
-.ill-face { --halo: #f4ebe0; text-shadow: 0 0 2px var(--halo), 0 0 2px var(--halo), 0 0 3px var(--halo), 1px 1px 0 var(--halo), -1px -1px 0 var(--halo); filter: drop-shadow(0 0 0 transparent); display: flex; flex-direction: column; align-items: center; gap: 2px; font: 800 13.5px/1.15 var(--font); color: #1d1b18; text-align: center; white-space: pre; user-select: none; }
+.ill-face { --halo: #f4ebe0; text-shadow: 0 0 2px var(--halo), 0 0 2px var(--halo), 0 0 3px var(--halo), 1px 1px 0 var(--halo), -1px -1px 0 var(--halo); filter: drop-shadow(0 0 0 transparent); display: flex; flex-direction: column; align-items: center; gap: 2px; font: 800 12.5px/1.12 var(--font); color: #1d1b18; text-align: center; white-space: pre; user-select: none; }
 .ill-face--error { color: #8f2a22; }
 .ill-face--down { color: #6f6961; text-decoration: line-through; }
 .ill-pill, .ill-badge, .ill-note, .ill-zone { font: 600 12px/1.2 var(--font); white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
@@ -417,3 +418,24 @@ h4 { margin: 14px 0 6px; font-size: 11px; text-transform: uppercase; letter-spac
   .chapters span { display: none; }
 }
 .ill-face svg { filter: drop-shadow(0 0 1.5px var(--halo)); }
+
+/* ---------- importación draw.io ---------- */
+.dialog--wide { max-width: 860px; }
+.dropzone { border: 2px dashed var(--line-strong); border-radius: 12px; padding: 26px; text-align: center; background: var(--paper-2); display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 10px; }
+.dropzone p { margin: 0; }
+.import-summary { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+.import-table { border: 1px solid var(--line); border-radius: 10px; max-height: 330px; overflow: auto; }
+.import-row { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) 150px; gap: 10px; align-items: center; padding: 6px 10px; border-bottom: 1px solid var(--line-soft); font-size: 12px; }
+.import-row:last-child { border-bottom: 0; }
+.import-row span:first-child { display: flex; flex-direction: column; min-width: 0; }
+.import-row small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10.5px; }
+.import-row--head { position: sticky; top: 0; background: var(--card); font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.conf { font-size: 10.5px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line-strong); justify-self: start; white-space: nowrap; }
+.conf--alta { background: var(--green); } .conf--media { background: var(--amber); } .conf--baja, .conf--ninguna { background: var(--rose); color: var(--red); } .conf--usuario { background: var(--violet); }
+.import-details { margin: 10px 0; font-size: 12px; } .import-details summary { cursor: pointer; }
+.import-details .warn { color: #b26a12; }
+.tree__import { margin: 10px 0 0 4px; background: none; border: 1.5px dashed var(--line-strong); border-radius: 8px; padding: 6px 10px; cursor: pointer; width: calc(100% - 8px); text-align: left; color: var(--ink-2); font-size: 12px; }
+.tree__import:hover { border-color: var(--ink); background: var(--card-2); }
+.tree__folder--static { cursor: default; }
+.stage__card--drop { outline: 3px dashed var(--accent); outline-offset: -6px; }
+@media (max-width: 760px) { .import-row { grid-template-columns: 1fr; } }

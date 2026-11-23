@@ -1,6 +1,6 @@
 /** Persistencia local (Fase 1). Todo lo leído se valida con el esquema antes de usarse. */
-import type { ArchitectureModel } from '@asa/core-model';
-import { parseModel } from '@asa/core-model';
+import type { ArchitectureModel, Scenario } from '@asa/core-model';
+import { parseModel, parseScenarios } from '@asa/core-model';
 
 const CURRENT = 'asa:current:v1';
 const VERSIONS = 'asa:versions:v1';
@@ -31,15 +31,21 @@ function write(key: string, value: unknown): boolean {
   }
 }
 
-export function saveCurrent(templateId: string, model: ArchitectureModel): void {
-  write(CURRENT, { templateId, model });
+export function saveCurrent(templateId: string, model: ArchitectureModel, scenarios?: Scenario[]): void {
+  write(CURRENT, { templateId, model, ...(scenarios ? { scenarios } : {}) });
 }
 
-export function loadCurrent(): { templateId: string; model: ArchitectureModel } | null {
-  const raw = read<{ templateId?: unknown; model?: unknown }>(CURRENT);
+export function loadCurrent(): { templateId: string; model: ArchitectureModel; scenarios?: Scenario[] } | null {
+  const raw = read<{ templateId?: unknown; model?: unknown; scenarios?: unknown }>(CURRENT);
   if (!raw || typeof raw.templateId !== 'string') return null;
   const parsed = parseModel(raw.model);
-  return parsed.ok ? { templateId: raw.templateId, model: parsed.value } : null;
+  if (!parsed.ok) return null;
+  if (raw.scenarios !== undefined) {
+    const sc = parseScenarios(raw.scenarios);
+    if (!sc.ok) return null;
+    return { templateId: raw.templateId, model: parsed.value, scenarios: sc.value };
+  }
+  return { templateId: raw.templateId, model: parsed.value };
 }
 
 export function listVersions(): SavedVersion[] {
